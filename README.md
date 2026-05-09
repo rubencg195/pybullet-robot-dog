@@ -6,6 +6,23 @@ Simulating a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-inspir
 
 The physical counterpart uses an ESP32, hobby servos, and an aluminum-extrusion test stand — the simulation lets us validate kinematics and gait trajectories before touching hardware.
 
+### Screenshots (V0)
+
+Add assets under `recordings/` with a **`README_` prefix** so git tracks them (see `.gitignore`). Capture the **same view as the GUI** using the debug camera (same idea as [interactive_robot_arm.py](https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py) in aws-pybullet-environment):
+
+| Still (PNG) | Animated (GIF) |
+|-------------|----------------|
+| ![V0 test stand](recordings/README_v0_test_stand.png) | ![V0 test stand GIF](recordings/README_v0_test_stand.gif) |
+
+Generate locally (pose the leg, then close the window or Ctrl+C):
+
+```bash
+bash scripts/run_test_stand.sh --snapshot recordings/README_v0_test_stand.png
+bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15
+```
+
+Commit the new `recordings/README_*` files when you are happy with them.
+
 ---
 
 ## Architecture
@@ -178,7 +195,7 @@ pybullet-robot-dog/
 ├── requirements.txt                     # pybullet, numpy, Pillow
 ├── .gitignore
 ├── .gitattributes                       # LF enforcement for cross-platform consistency
-├── recordings/                          # GIF recordings (gitignored except .gitkeep)
+├── recordings/                          # Captures; tracked only if name starts with README_
 │   └── .gitkeep
 ├── scripts/
 │   ├── check_v0_env.sh                  # Diagnose Python + numpy + pybullet (+ g++ hint)
@@ -187,7 +204,8 @@ pybullet-robot-dog/
 ├── common/                              # Shared library across all versions
 │   ├── __init__.py
 │   ├── kinematics.py                    # FK / IK solver for 3-DOF SpotMicro leg
-│   └── debug_visualizer.py             # PyBullet debug drawing: trails, skeleton, HUD
+│   ├── debug_visualizer.py             # PyBullet debug drawing: trails, skeleton, HUD
+│   └── view_capture.py                  # RGBA from current debug-visualizer camera
 └── V0_test_stand/                       # V0: single leg on a fixed test stand
     ├── __init__.py
     ├── urdf/
@@ -261,10 +279,19 @@ In the **Params** panel on the right, PyBullet shows **user debug sliders** (oft
 | **Knee Flexion (deg)** | q3 — knee bend | about ±150° |
 | **Clear Trail** | n/a | move the handle to clear the green foot trail |
 
-Values are shown and edited in **degrees**; the script converts to radians for PyBullet. Default **camera** is a **front (coronal)** view from +X so you face the leg like the test-stand front view, not a side isometric. Use `--camera side` for the old yaw=45 view:
+Values are shown and edited in **degrees**; the script converts to radians for PyBullet (clamped to URDF limits).
+
+**Camera presets** (`--camera`):
+
+| Preset | Use |
+|--------|-----|
+| **`stand`** (default) | Test-stand **profile** — matches the usual side/profile shot (yaw −90°, pitch −20°, target near hip), like the physical rig and patent figure. |
+| **`iso`** | Older isometric corner view (yaw 45°). |
+| **`coronal`** | Face the leg from **+X** (abduction opens toward the camera). |
 
 ```bash
-bash scripts/run_test_stand.sh --camera side
+bash scripts/run_test_stand.sh --camera iso
+bash scripts/run_test_stand.sh --camera coronal
 ```
 
 A **green trail** traces the foot path. The **yellow skeleton** overlay and **HUD text** update every frame showing joint angles, foot position in hip frame, total reach, and FK error (difference between our math and PyBullet's internal FK — should be near zero).
@@ -311,15 +338,19 @@ Set **`PY_ROBOT_DOG=/path/to/python`** if both conda and system Python exist and
 
 The HUD shows solved joint angles and tracking error in millimetres.
 
-### Recording to GIF
+### Recording (GIF) and README stills (PNG)
 
-Both scripts accept `--record <path>` to capture the PyBullet viewport via TinyRenderer:
+`--record` and `--snapshot` use **`getDebugVisualizerCamera` + `computeViewMatrixFromYawPitchRoll`**, so captures match **what you see in the GUI** (including camera orbit/zoom if you move the mouse). Frames are grabbed on a **time schedule** (`--fps` for GIFs), not every physics step — same pattern as [interactive_robot_arm.py](https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py).
 
 ```bash
-python V0_test_stand/test_stand.py --record recordings/session.gif --fps 20 --width 1024 --height 768
+# Animated GIF (keep the window open a few seconds)
+bash scripts/run_test_stand.sh --record recordings/session.gif --fps 15 --width 1024 --height 768
+
+# Single PNG on exit (Ctrl+C or close window) — good for README figures
+bash scripts/run_test_stand.sh --snapshot recordings/README_v0_test_stand.png --width 1200 --height 800
 ```
 
-Requires Pillow (`pip install Pillow`, already in `requirements.txt`).
+Requires **Pillow** (`pip install Pillow`, in `requirements.txt`).
 
 ---
 

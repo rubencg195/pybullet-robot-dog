@@ -8,8 +8,9 @@ build/
 venv/
 .env
 
-recordings/*.gif
+recordings/*
 !recordings/.gitkeep
+!recordings/README*
 
 *.swp
 *.swo

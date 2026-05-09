@@ -37,25 +37,32 @@ from common.kinematics import (
     inverse_kinematics,
 )
 from common.debug_visualizer import DebugVisualizer
+from common.view_capture import rgba_from_debug_view
 
 STAND_HEIGHT = 0.35
 URDF_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "urdf", "leg_test_stand.urdf"
 )
 
-# Match test_stand.py defaults (front = coronal from +X).
-CAM_FRONT = dict(
+CAM_STAND = dict(
     cameraDistance=0.52,
     cameraYaw=-90.0,
     cameraPitch=-20.0,
     cameraTargetPosition=[0.0, 0.0, STAND_HEIGHT - 0.06],
 )
-CAM_SIDE = dict(
+CAM_ISO = dict(
     cameraDistance=0.5,
     cameraYaw=45.0,
     cameraPitch=-30.0,
     cameraTargetPosition=[0.0, -0.03, STAND_HEIGHT - 0.12],
 )
+CAM_CORONAL = dict(
+    cameraDistance=0.52,
+    cameraYaw=0.0,
+    cameraPitch=-20.0,
+    cameraTargetPosition=[0.0, 0.0, STAND_HEIGHT - 0.06],
+)
+CAM_PRESETS = {"stand": CAM_STAND, "iso": CAM_ISO, "coronal": CAM_CORONAL}
 
 # Nominal stance: slight hip flexion + knee bend so the foot is well
 # inside the workspace and the circle/path has room around it.
@@ -113,23 +120,35 @@ def main():
                         help="Speed multiplier (default: 0.5)")
     parser.add_argument("--loops", type=int, default=0,
                         help="Number of loops, 0 = infinite (default: 0)")
-    parser.add_argument("--record", default=None, help="Save as GIF")
+    parser.add_argument("--record", metavar="FILE", default=None,
+                        help="Save GUI view to GIF (debug camera)")
     parser.add_argument("--fps", type=int, default=15)
     parser.add_argument("--width", type=int, default=800)
     parser.add_argument("--height", type=int, default=600)
     parser.add_argument(
+        "--snapshot", metavar="FILE", default=None,
+        help="Save one PNG from debug camera on exit",
+    )
+    parser.add_argument(
         "--camera",
-        choices=("front", "side"),
-        default="front",
-        help="front = coronal from +X; side = old yaw=45 view",
+        choices=tuple(CAM_PRESETS.keys()),
+        default="stand",
+        help="stand=profile (default); iso; coronal",
     )
     args = parser.parse_args()
+
+    if args.record or args.snapshot:
+        try:
+            from PIL import Image  # noqa: F401
+        except ImportError:
+            print("Install Pillow for --record / --snapshot: pip install Pillow")
+            sys.exit(1)
 
     # ── PyBullet setup ──────────────────────────────────────────────────
     p.connect(p.GUI)
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
     p.setGravity(0, 0, -9.81)
-    cam = CAM_FRONT if args.camera == "front" else CAM_SIDE
+    cam = CAM_PRESETS[args.camera]
     p.resetDebugVisualizerCamera(**cam)
     p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
 
@@ -165,14 +184,25 @@ def main():
     idx = 0
     loop_count = 0
     ik_failures = 0
-    frames: list[np.ndarray] = []
+    recording = args.record is not None
+    capture_interval = 1.0 / args.fps if recording else 0.0
+    last_capture = 0.0
+    frames_pil: list = []
 
     print(f"IK demo: path={args.path}  radius/half={args.radius}  "
           f"speed={args.speed}  loops={'inf' if args.loops == 0 else args.loops}")
+    if recording:
+        print(f"Recording GUI view → {args.record} at {args.fps} fps.")
     print("Press Ctrl+C or close the window to stop.\n")
 
     try:
         while True:
+            try:
+                if not p.isConnected():
+                    break
+            except Exception:
+                break
+
             target = np.array(targets[idx])
             target_w = target + base
 
@@ -226,11 +256,14 @@ def main():
 
             p.stepSimulation()
 
-            if args.record:
-                _, _, rgba, _, _ = p.getCameraImage(
-                    args.width, args.height, renderer=p.ER_TINY_RENDERER)
-                frames.append(
-                    np.reshape(rgba, (args.height, args.width, 4)))
+            if recording:
+                now_cap = time.monotonic()
+                if now_cap - last_capture >= capture_interval:
+                    from PIL import Image
+
+                    rgba = rgba_from_debug_view(p, args.width, args.height)
+                    frames_pil.append(Image.fromarray(rgba[:, :, :3]))
+                    last_capture = now_cap
 
             idx += 1
             if idx >= len(targets):
@@ -244,27 +277,44 @@ def main():
     except (KeyboardInterrupt, SystemExit):
         pass
 
-    if args.record and frames:
-        _save_gif(frames, args.record, args.fps)
+    if args.snapshot:
+        try:
+            if p.isConnected():
+                from PIL import Image
 
-    p.disconnect()
+                rgba = rgba_from_debug_view(p, args.width, args.height)
+                out = os.path.abspath(args.snapshot)
+                parent = os.path.dirname(out)
+                if parent:
+                    os.makedirs(parent, exist_ok=True)
+                Image.fromarray(rgba[:, :, :3]).save(out)
+                print(f"Snapshot saved → {out}")
+        except Exception as exc:
+            print(f"Snapshot failed: {exc}")
+
+    if recording and frames_pil:
+        _save_gif(frames_pil, args.record, args.fps)
+
+    try:
+        if p.isConnected():
+            p.disconnect()
+    except Exception:
+        pass
     print(f"\nCompleted {loop_count} loops.  IK failures: {ik_failures}")
 
 
-def _save_gif(frames, path, fps):
-    try:
-        from PIL import Image
-
-        images = [Image.fromarray(f[:, :, :3]) for f in frames]
-        if images:
-            os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-            images[0].save(
-                path, save_all=True, append_images=images[1:],
-                duration=int(1000 / fps), loop=0,
-            )
-            print(f"Saved {len(images)} frames → {path}")
-    except ImportError:
-        print("Install Pillow for GIF recording:  pip install Pillow")
+def _save_gif(images, path, fps):
+    if not images:
+        return
+    out = os.path.abspath(path)
+    parent = os.path.dirname(out)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    images[0].save(
+        out, format="GIF", save_all=True, append_images=images[1:],
+        duration=int(1000 / fps), loop=0,
+    )
+    print(f"Saved {len(images)} frames → {out}")
 
 
 if __name__ == "__main__":

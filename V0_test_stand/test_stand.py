@@ -2,16 +2,17 @@
 """V0 Test Stand — interactive single-leg control with joint sliders.
 
 Loads a SpotMicro-inspired 3-DOF leg on a fixed test stand.  The PyBullet
-**Params** panel shows **sliders** (debug parameters): three joints in
-**degrees** plus **Clear Trail**.  The foot trail is drawn in green; a yellow
-skeleton overlay and HUD update every frame.  Default camera is **front**
-(coronal, from +X); use ``--camera side`` for the old isometric view.
+**Params** panel shows **sliders**: three joints in **degrees** plus
+**Clear Trail**.  Default camera **stand** matches the physical test-stand
+**profile** (sagittal-style: yaw −90°, pitch −20°, target near hip).  Recording
+uses the **same** debug camera as the GUI (like ``interactive_robot_arm.py``).
 
 Usage
 -----
     python V0_test_stand/test_stand.py
-    python V0_test_stand/test_stand.py --camera side
-    python V0_test_stand/test_stand.py --record recordings/session.gif
+    python V0_test_stand/test_stand.py --camera iso
+    python V0_test_stand/test_stand.py --record recordings/v0_session.gif --fps 15
+    python V0_test_stand/test_stand.py --snapshot recordings/README_v0_still.png
 """
 
 import sys
@@ -28,6 +29,7 @@ import pybullet_data
 
 from common.kinematics import LegConfig, forward_kinematics_full
 from common.debug_visualizer import DebugVisualizer
+from common.view_capture import rgba_from_debug_view
 
 STAND_HEIGHT = 0.35
 URDF_PATH = os.path.join(
@@ -37,20 +39,29 @@ URDF_PATH = os.path.join(
 JOINT_ORDER = ["hip_abduction", "hip_flexion", "knee_flexion"]
 LOG_INTERVAL = 120  # print to terminal every N simulation steps
 
-# Default camera: **front** view (coronal) — camera sits on +X, looks at hip.
-# Hip frame: +X forward, +Y lateral (left), +Z up. Side/isometric used yaw≈45.
-CAM_FRONT = dict(
+# **stand** — test-stand profile (matches typical side/profile screenshot: yaw −90, pitch −20).
+CAM_STAND = dict(
     cameraDistance=0.52,
     cameraYaw=-90.0,
     cameraPitch=-20.0,
     cameraTargetPosition=[0.0, 0.0, STAND_HEIGHT - 0.06],
 )
-CAM_SIDE = dict(
+# **iso** — corner / isometric (older default).
+CAM_ISO = dict(
     cameraDistance=0.5,
     cameraYaw=45.0,
     cameraPitch=-30.0,
     cameraTargetPosition=[0.0, -0.03, STAND_HEIGHT - 0.12],
 )
+# **coronal** — face the leg from +X (width / abduction opening toward camera).
+CAM_CORONAL = dict(
+    cameraDistance=0.52,
+    cameraYaw=0.0,
+    cameraPitch=-20.0,
+    cameraTargetPosition=[0.0, 0.0, STAND_HEIGHT - 0.06],
+)
+
+CAM_PRESETS = {"stand": CAM_STAND, "iso": CAM_ISO, "coronal": CAM_CORONAL}
 
 
 def _find_link_index(robot_id, link_name):
@@ -64,17 +75,29 @@ def main():
     parser = argparse.ArgumentParser(
         description="SpotMicro leg test stand — interactive FK explorer"
     )
-    parser.add_argument("--record", default=None, help="Save session as GIF")
-    parser.add_argument("--fps", type=int, default=15, help="GIF frame rate")
-    parser.add_argument("--width", type=int, default=800, help="Capture width")
-    parser.add_argument("--height", type=int, default=600, help="Capture height")
+    parser.add_argument("--record", metavar="FILE", default=None,
+                        help="Record the GUI view to an animated GIF (debug camera)")
+    parser.add_argument("--fps", type=int, default=15, help="GIF frame rate when --record")
+    parser.add_argument("--width", type=int, default=800, help="Capture / snapshot width")
+    parser.add_argument("--height", type=int, default=600, help="Capture / snapshot height")
+    parser.add_argument(
+        "--snapshot", metavar="FILE", default=None,
+        help="Save one PNG from the debug camera on exit (README still image)",
+    )
     parser.add_argument(
         "--camera",
-        choices=("front", "side"),
-        default="front",
-        help="front = coronal view from +X (like patent front); side = old yaw=45 view",
+        choices=tuple(CAM_PRESETS.keys()),
+        default="stand",
+        help="stand=test-stand profile (default); iso=yaw 45; coronal=from +X",
     )
     args = parser.parse_args()
+
+    if args.record or args.snapshot:
+        try:
+            from PIL import Image  # noqa: F401
+        except ImportError:
+            print("Install Pillow for --record / --snapshot: pip install Pillow")
+            sys.exit(1)
 
     print("=" * 60)
     print("  V0 TEST STAND — SpotMicro Leg Simulation")
@@ -91,7 +114,7 @@ def main():
 
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
     p.setGravity(0, 0, -9.81)
-    cam = CAM_FRONT if args.camera == "front" else CAM_SIDE
+    cam = CAM_PRESETS[args.camera]
     p.resetDebugVisualizerCamera(**cam)
     p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
     print(f"[INIT] Camera preset: {args.camera}  ({cam})")
@@ -157,18 +180,34 @@ def main():
           f"({ft0[0]+base[0]:+.4f}, {ft0[1]+base[1]:+.4f}, {ft0[2]+base[2]:+.4f})")
     print()
 
-    frames: list[np.ndarray] = []
     step_count = 0
     max_fk_err = 0.0
     t_start = time.time()
 
     print("[RUN ] Simulation running — move sliders in the PyBullet GUI window.")
     print(f"[RUN ] Terminal log every {LOG_INTERVAL} steps (~{LOG_INTERVAL/240:.1f}s).")
+    if args.record:
+        print(f"[RUN ] Recording GUI view → {args.record} at {args.fps} fps "
+              f"({args.width}x{args.height}).")
+    if args.snapshot:
+        print(f"[RUN ] Will save still PNG on exit → {args.snapshot}")
     print("[RUN ] Press Ctrl+C or close the window to exit.")
     print("-" * 60)
 
+    recording = args.record is not None
+    capture_interval = 1.0 / args.fps if recording else 0.0
+    last_capture = 0.0
+    frames_pil: list = []
+
     try:
         while True:
+            try:
+                if not p.isConnected():
+                    print("\n[RUN ] GUI window closed.")
+                    break
+            except Exception:
+                break
+
             # clear-trail button
             cv = p.readUserDebugParameter(clear_btn)
             if cv != last_clear:
@@ -176,10 +215,13 @@ def main():
                 viz.clear_trail("foot")
                 print("[EVENT] Trail cleared")
 
-            # read sliders (degrees → radians)
-            q1 = np.radians(p.readUserDebugParameter(sliders["hip_abduction"]))
-            q2 = np.radians(p.readUserDebugParameter(sliders["hip_flexion"]))
-            q3 = np.radians(p.readUserDebugParameter(sliders["knee_flexion"]))
+            # read sliders (degrees → radians, clamp to URDF limits)
+            q_raw = []
+            for name in JOINT_ORDER:
+                lo, hi = joints[name]["lower"], joints[name]["upper"]
+                rad = np.radians(p.readUserDebugParameter(sliders[name]))
+                q_raw.append(float(np.clip(rad, lo, hi)))
+            q1, q2, q3 = q_raw
 
             # drive joints
             for name, q in zip(JOINT_ORDER, (q1, q2, q3)):
@@ -260,14 +302,15 @@ def main():
                 base + [0.12, 0.0, 0.01],
             )
 
-            # optional recording
-            if args.record:
-                _, _, rgba, _, _ = p.getCameraImage(
-                    args.width, args.height, renderer=p.ER_TINY_RENDERER
-                )
-                frames.append(
-                    np.reshape(rgba, (args.height, args.width, 4))
-                )
+            # optional recording — same debug camera as on screen (cf. interactive_robot_arm.py)
+            if recording:
+                now_cap = time.monotonic()
+                if now_cap - last_capture >= capture_interval:
+                    from PIL import Image
+
+                    rgba = rgba_from_debug_view(p, args.width, args.height)
+                    frames_pil.append(Image.fromarray(rgba[:, :, :3]))
+                    last_capture = now_cap
 
             time.sleep(1.0 / 240.0)
 
@@ -282,30 +325,54 @@ def main():
           f"Avg FPS: {step_count / elapsed if elapsed > 0 else 0:.0f}")
     print(f"[DONE] Max FK error: {max_fk_err:.6f} m")
 
-    if args.record and frames:
-        _save_gif(frames, args.record, args.fps)
+    # Still image (debug camera) — useful for README figures
+    if args.snapshot:
+        try:
+            if p.isConnected():
+                from PIL import Image
 
-    p.disconnect()
+                rgba = rgba_from_debug_view(p, args.width, args.height)
+                out = os.path.abspath(args.snapshot)
+                parent = os.path.dirname(out)
+                if parent:
+                    os.makedirs(parent, exist_ok=True)
+                Image.fromarray(rgba[:, :, :3]).save(out)
+                print(f"[DONE] Snapshot saved → {out}")
+        except Exception as exc:
+            print(f"[WARN] Snapshot failed: {exc}")
+
+    if recording and frames_pil:
+        _save_gif(frames_pil, args.record, args.fps)
+    elif recording and not frames_pil:
+        print("[WARN] No GIF frames captured (session very short?).")
+
+    try:
+        if p.isConnected():
+            p.disconnect()
+    except Exception:
+        pass
     print("[DONE] PyBullet disconnected.  Goodbye.")
 
 
-def _save_gif(frames, path, fps):
-    try:
-        from PIL import Image
+def _save_gif(images, path, fps):
+    """Save a list of PIL.Image RGB frames."""
+    from PIL import Image
 
-        images = [Image.fromarray(f[:, :, :3]) for f in frames]
-        if images:
-            os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-            images[0].save(
-                path,
-                save_all=True,
-                append_images=images[1:],
-                duration=int(1000 / fps),
-                loop=0,
-            )
-            print(f"\nSaved {len(images)} frames → {path}")
-    except ImportError:
-        print("\nInstall Pillow for GIF recording:  pip install Pillow")
+    if not images:
+        return
+    out = os.path.abspath(path)
+    parent = os.path.dirname(out)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    images[0].save(
+        out,
+        format="GIF",
+        save_all=True,
+        append_images=images[1:],
+        duration=int(1000 / fps),
+        loop=0,
+    )
+    print(f"\nSaved {len(images)} frames → {out}")
 
 
 if __name__ == "__main__":
