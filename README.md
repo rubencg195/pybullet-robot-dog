@@ -180,6 +180,8 @@ pybullet-robot-dog/
 ├── .gitattributes                       # LF enforcement for cross-platform consistency
 ├── recordings/                          # GIF recordings (gitignored except .gitkeep)
 │   └── .gitkeep
+├── scripts/
+│   └── check_v0_env.sh                  # Diagnose missing numpy / pybullet / g++
 ├── common/                              # Shared library across all versions
 │   ├── __init__.py
 │   ├── kinematics.py                    # FK / IK solver for 3-DOF SpotMicro leg
@@ -396,6 +398,23 @@ Bridge from simulation to the physical robot (ESP32 + servos).
 ## Troubleshooting
 
 This section doubles as a **project status log**: what is finished, what is blocking progress, and what to do next. Symptom-based fixes follow below.
+
+### Why the V0 sim fails immediately (root cause)
+
+Run this from the repo root for a structured report:
+
+```bash
+bash scripts/check_v0_env.sh
+```
+
+| Symptom | Root cause | Fix |
+|---------|------------|-----|
+| `ModuleNotFoundError: No module named 'numpy'` | Dependencies never installed (or wrong Python). | `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt` |
+| `ModuleNotFoundError: No module named 'pybullet'` | PyBullet not installed. Often **pip could not build it**. | Install a C++ toolchain, then reinstall (next row). |
+| Pip ends with `error: command 'x86_64-linux-gnu-g++' failed: No such file or directory` | **No C++ compiler** — PyBullet’s Linux wheels are not always published for every Python version; pip falls back to **building from source**, which needs `g++`. | `sudo apt-get install -y build-essential python3-dev` then `pip install -r requirements.txt` again. |
+| `Cannot connect to ... display` / `Error 11` / blank GUI | No OpenGL display (SSH, bad `DISPLAY`, WSL without WSLg). | Use WSLg, an X server, or a desktop machine; see [PyBullet display](#pybullet-cannot-open-display--opengl-errors) below. |
+
+**Summary:** On a typical minimal Ubuntu/WSL setup, the **first real blocker** is almost always **missing `build-essential`** so **`pybullet` never installs**; the script then crashes on `import pybullet` or, if numpy was skipped, on `import numpy`.
 
 ### Done (so far)
 
