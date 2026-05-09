@@ -181,7 +181,9 @@ pybullet-robot-dog/
 ├── recordings/                          # GIF recordings (gitignored except .gitkeep)
 │   └── .gitkeep
 ├── scripts/
-│   └── check_v0_env.sh                  # Diagnose missing numpy / pybullet / g++
+│   ├── check_v0_env.sh                  # Diagnose Python + numpy + pybullet (+ g++ hint)
+│   ├── run_test_stand.sh                # Run test_stand.py (-u, picks conda if available)
+│   └── run_ik_demo.sh                   # Run ik_demo.py (-u, same Python selection)
 ├── common/                              # Shared library across all versions
 │   ├── __init__.py
 │   ├── kinematics.py                    # FK / IK solver for 3-DOF SpotMicro leg
@@ -215,15 +217,39 @@ Shared math and visualisation live in `common/` so there is no duplication of th
 
 ### Install
 
+**Option A — venv + pip** (needs **`g++`** / `build-essential` on Linux when PyBullet builds from source):
+
 ```bash
 cd pybullet-robot-dog
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+**Option B — Miniconda** (no compiler; conda-forge ships a **prebuilt** PyBullet binary — useful on minimal WSL/Ubuntu):
+
+```bash
+# One-time: install Miniconda to ~/miniconda3, then:
+conda install -y -c conda-forge pybullet numpy pillow
+# If conda asks you to accept Anaconda ToS for defaults:
+#   conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+#   conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+```
+
+Sanity check (picks system Python or `~/miniconda3` automatically):
+
+```bash
+bash scripts/check_v0_env.sh
 ```
 
 ### Run the Interactive Test Stand
 
 ```bash
-python V0_test_stand/test_stand.py
+# Uses Miniconda if it has pybullet, else system python3 — unbuffered logs (-u)
+bash scripts/run_test_stand.sh
+
+# Equivalent if your venv is already activated:
+python -u V0_test_stand/test_stand.py
 ```
 
 Three sliders appear in the PyBullet GUI window:
@@ -241,21 +267,33 @@ A **Clear Trail** button resets the green path.
 ### Run the IK Demo
 
 ```bash
+bash scripts/run_ik_demo.sh
+
+# Examples (extra args pass through):
+bash scripts/run_ik_demo.sh --path line
+bash scripts/run_ik_demo.sh --path step --loops 2 --record recordings/ik_step.gif
+```
+
+Or with an explicit interpreter:
+
+```bash
 # Circle trajectory (default) — vertical circle in XZ plane
-python V0_test_stand/ik_demo.py
+python -u V0_test_stand/ik_demo.py
 
 # Forward/backward line sweep
-python V0_test_stand/ik_demo.py --path line
+python -u V0_test_stand/ik_demo.py --path line
 
 # Walking step cycle (flat stance + arched swing)
-python V0_test_stand/ik_demo.py --path step
+python -u V0_test_stand/ik_demo.py --path step
 
 # Larger circle, slower
-python V0_test_stand/ik_demo.py --path circle --radius 0.05 --speed 0.3
+python -u V0_test_stand/ik_demo.py --path circle --radius 0.05 --speed 0.3
 
 # Record to GIF (2 loops, then exit)
-python V0_test_stand/ik_demo.py --path step --loops 2 --record recordings/ik_step.gif
+python -u V0_test_stand/ik_demo.py --path step --loops 2 --record recordings/ik_step.gif
 ```
+
+Set **`PY_ROBOT_DOG=/path/to/python`** if both conda and system Python exist and you want to force one.
 
 | Colour | Meaning |
 |--------|---------|
@@ -411,7 +449,7 @@ bash scripts/check_v0_env.sh
 |---------|------------|-----|
 | `ModuleNotFoundError: No module named 'numpy'` | Dependencies never installed (or wrong Python). | `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt` |
 | `ModuleNotFoundError: No module named 'pybullet'` | PyBullet not installed. Often **pip could not build it**. | Install a C++ toolchain, then reinstall (next row). |
-| Pip ends with `error: command 'x86_64-linux-gnu-g++' failed: No such file or directory` | **No C++ compiler** — PyBullet’s Linux wheels are not always published for every Python version; pip falls back to **building from source**, which needs `g++`. | `sudo apt-get install -y build-essential python3-dev` then `pip install -r requirements.txt` again. |
+| Pip ends with `error: command 'x86_64-linux-gnu-g++' failed: No such file or directory` | **No C++ compiler** — PyBullet’s Linux wheels are not always published for every Python version; pip falls back to **building from source**, which needs `g++`. | `sudo apt-get install -y build-essential python3-dev` then `pip install -r requirements.txt` again, **or** use **Miniconda** + `conda install -c conda-forge pybullet` (see Quick Start). |
 | `Cannot connect to ... display` / `Error 11` / blank GUI | No OpenGL display (SSH, bad `DISPLAY`, WSL without WSLg). | Use WSLg, an X server, or a desktop machine; see [PyBullet display](#pybullet-cannot-open-display--opengl-errors) below. |
 
 **Summary:** On a typical minimal Ubuntu/WSL setup, the **first real blocker** is almost always **missing `build-essential`** so **`pybullet` never installs**; the script then crashes on `import pybullet` or, if numpy was skipped, on `import numpy`.
