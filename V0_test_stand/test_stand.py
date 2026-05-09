@@ -87,7 +87,15 @@ def main():
         default="stand",
         help="stand=test-stand profile (default); iso=yaw 45; coronal=from +X",
     )
+    parser.add_argument(
+        "--urdf",
+        default=None,
+        metavar="PATH",
+        help="Alternate leg URDF (default: V0 primitives). Use V1 mesh URDF once CAD is exported.",
+    )
     args = parser.parse_args()
+
+    urdf_path = os.path.abspath(args.urdf) if args.urdf else URDF_PATH
 
     if args.record or args.snapshot:
         try:
@@ -96,12 +104,13 @@ def main():
             print("Install Pillow for --record / --snapshot: pip install Pillow")
             sys.exit(1)
 
+    label = "V1 CAD (mesh)" if "V1_test_stand" in urdf_path else "V0 primitives"
     print("=" * 60)
-    print("  V0 TEST STAND — SpotMicro Leg Simulation")
+    print(f"  TEST STAND — {label}")
     print("=" * 60)
-    print(f"  URDF path : {URDF_PATH}")
+    print(f"  URDF path : {urdf_path}")
     print(f"  Stand height : {STAND_HEIGHT} m")
-    print(f"  URDF exists  : {os.path.isfile(URDF_PATH)}")
+    print(f"  URDF exists  : {os.path.isfile(urdf_path)}")
     print()
 
     # ── PyBullet setup ──────────────────────────────────────────────────
@@ -120,8 +129,8 @@ def main():
     plane_id = p.loadURDF("plane.urdf")
     print(f"[INIT] Ground plane loaded  (body id = {plane_id})")
 
-    print(f"[INIT] Loading leg URDF from {URDF_PATH} ...")
-    robot = p.loadURDF(URDF_PATH, [0, 0, STAND_HEIGHT], useFixedBase=True)
+    print(f"[INIT] Loading leg URDF from {urdf_path} ...")
+    robot = p.loadURDF(urdf_path, [0, 0, STAND_HEIGHT], useFixedBase=True)
     print(f"[INIT] Leg loaded  (body id = {robot})")
 
     # ── discover revolute joints ────────────────────────────────────────

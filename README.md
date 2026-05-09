@@ -1,6 +1,6 @@
 # PyBullet robot dog
 
-This repo is a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-style quadruped in [PyBullet](https://pybullet.org/). Right now it’s just **one leg on a test stand** (V0): you can drag sliders, watch the foot trace a path, and sanity-check forward and inverse kinematics before we bolt four legs onto a body.
+This repo is a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-style quadruped in [PyBullet](https://pybullet.org/). **V0** is one leg on a test stand built from primitives (cylinders/spheres). **V1** is the *same* stand and joint layout, but the URDF expects **real CAD exports** (STLs under `V1_test_stand/meshes/`)—that folder is empty until you drop files in. Everything after that—full dog, gaits, hardware—is sketched as V2+.
 
 There’s a real build on the bench too—ESP32, servos, aluminium extrusion—so the sim is where we mess with poses without stripping gears.
 
@@ -32,48 +32,53 @@ We only commit a few files from that folder (see `.gitignore`). Right now the RE
 
 ---
 
-## What’s in the box (V0)
+## What’s in the box
 
-The leg lives in `V0_test_stand/urdf/leg_test_stand.urdf`—three revolute joints, stubby cylinders, green foot sphere, base parked at 0.35 m. Kinematics live in `common/kinematics.py` (closed-form FK/IK in the hip frame; tweak lengths via `LegConfig`). `common/debug_visualizer.py` draws the green trail, yellow stick figure, and the floating text. `common/view_capture.py` is the tiny helper that grabs pixels from the **debug** camera so recordings match the GUI.
+**V0** — `V0_test_stand/urdf/leg_test_stand.urdf` is the working leg: three revolutes, cylinders, green foot, base at 0.35 m. `test_stand.py` and `ik_demo.py` live here; they’re the ones you run day to day.
 
-`test_stand.py` is the playground: degree sliders, URDF limit clamping, optional `--record` / `--snapshot`, three camera presets (`stand`, `iso`, `coronal`), and a line of telemetry every 120 sim steps. `ik_demo.py` drives circle / line / step paths with the same camera flags.
+**V1** — `V1_test_stand/urdf/leg_test_stand_cad.urdf` mirrors the same joints and limits, but every link uses `<mesh>` tags pointing at `V1_test_stand/meshes/*.stl`. The launchers (`V1_test_stand/test_stand.py` and `ik_demo.py`) check for five files (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) and **quit with a checklist** if anything’s missing—so the repo stays honest until CAD lands. Under the hood they call the V0 scripts with `--urdf …/leg_test_stand_cad.urdf`. Use `bash scripts/run_test_stand_v1.sh` once the STLs exist.
 
-Shell glue is under `scripts/`: `check_v0_env.sh` tells you which Python actually has `pybullet`, and the `run_*.sh` wrappers prefer `~/miniconda3` or `PY_ROBOT_DOG` when the system Python is empty-handed.
+Shared pieces: `common/kinematics.py` (FK/IK, `LegConfig`), `common/debug_visualizer.py`, `common/view_capture.py`. Shell helpers: `check_v0_env.sh`, `run_test_stand.sh`, `run_ik_demo.sh`, plus `run_test_stand_v1.sh` / `run_ik_demo_v1.sh`.
 
 ---
 
 ## Architecture
 
-Versions are split into folders so V0 doesn’t get stepped on when V1 adds a full body. Shared math stays in `common/`.
+Folders are versioned so a crude V0 leg and a future mesh V1 don’t fight each other, and later quadruped work stays separate. All of them can share `common/`.
 
 ```mermaid
 flowchart LR
   subgraph project["PyBullet Robot Dog"]
     COMMON["common/\nKinematics\nVisualisation"]
-    V0["V0_test_stand/\nSingle Leg\nTest Stand"]
-    V1["V1 (future)\nFull Quadruped\nStanding + Posing"]
-    V2["V2 (future)\nWalking Gaits\nTrot / Crawl"]
-    V3["V3 (future)\nHardware Bridge\nESP32 + Servos"]
+    V0["V0_test_stand/\nPrimitives\nworking now"]
+    V1["V1_test_stand/\nSame stand\nCAD meshes"]
+    V2["V2 (next)\nFull quad\nbody + legs"]
+    V3["V3\nGaits"]
+    V4["V4\nReal robot"]
   end
   COMMON --> V0
   COMMON --> V1
   COMMON --> V2
   COMMON --> V3
-  V0 -->|"validates leg IK"| V1
-  V1 -->|"adds gaits"| V2
-  V2 -->|"bridges to HW"| V3
+  COMMON --> V4
+  V0 -->|"same IK chain"| V1
+  V1 -->|"four legs"| V2
+  V2 -->|"locomotion"| V3
+  V3 -->|"ESP32 / PWM"| V4
 ```
 
-### V0 data flow (dense, but one picture)
+### Sim data flow — V0 and V1 (same code path)
+
+V1 is the V0 scripts with `--urdf` pointing at `leg_test_stand_cad.urdf` (or the thin wrappers under `V1_test_stand/`). Kinematics and debug draw are unchanged; only the loaded geometry differs.
 
 ```mermaid
 flowchart TB
   subgraph user["User Input"]
     SLIDERS["GUI Joint Sliders\nhip_abduction\nhip_flexion\nknee_flexion"]
-    CLI["CLI Arguments\n--path circle|line|step\n--record  --speed  --loops"]
+    CLI["CLI Arguments\n--path circle|line|step\n--record  --speed  --loops\n--urdf optional"]
   end
 
-  subgraph scripts["V0 Test Stand Scripts"]
+  subgraph scripts["Test stand scripts"]
     TS["test_stand.py\nInteractive FK Explorer\nSliders → joints → trail"]
     IK["ik_demo.py\nIK Path Tracing\nTarget path → IK → drive"]
   end
@@ -83,8 +88,8 @@ flowchart TB
     VIZ["debug_visualizer.py\n─────────────────\nDebugVisualizer class\nTrails · Skeleton · Markers\nHUD text · Path drawing"]
   end
 
-  subgraph model["URDF Model"]
-    URDF["leg_test_stand.urdf\n─────────────────\n3 revolute joints\nCylinder links\nSphere foot\nFixed base at 0.35 m"]
+  subgraph model["URDF model"]
+    URDF["V0: leg_test_stand.urdf\n(primitives)\n─────────────────\nV1: leg_test_stand_cad.urdf\n(STL meshes)\n─────────────────\nSame 3 joints · limits · base z=0.35 m"]
   end
 
   subgraph engine["PyBullet Engine"]
@@ -186,14 +191,21 @@ pybullet-robot-dog/
 ├── scripts/
 │   ├── check_v0_env.sh
 │   ├── run_test_stand.sh
-│   └── run_ik_demo.sh
+│   ├── run_ik_demo.sh
+│   ├── run_test_stand_v1.sh
+│   └── run_ik_demo_v1.sh
 ├── common/
 │   ├── kinematics.py
 │   ├── debug_visualizer.py
 │   └── view_capture.py
-└── V0_test_stand/
-    ├── urdf/leg_test_stand.urdf
-    ├── test_stand.py
+├── V0_test_stand/
+│   ├── urdf/leg_test_stand.urdf
+│   ├── test_stand.py
+│   └── ik_demo.py
+└── V1_test_stand/
+    ├── meshes/                 # drop STLs here (gitignored except .gitkeep)
+    ├── urdf/leg_test_stand_cad.urdf
+    ├── test_stand.py           # wrapper → V0 + --urdf
     └── ik_demo.py
 ```
 
@@ -254,6 +266,17 @@ Orange = commanded path, red dot = current target, green = where the foot actual
 
 If you have two Pythons fighting, force one: `export PY_ROBOT_DOG=/path/to/python`.
 
+### V1 (CAD meshes)
+
+When the five STLs are in place:
+
+```bash
+bash scripts/run_test_stand_v1.sh --camera coronal
+bash scripts/run_test_stand_v1.sh --record recordings/v1_session.gif --fps 15 --camera coronal
+```
+
+Until then the launcher prints what’s missing and exits—stick with V0.
+
 ### Recording notes
 
 `--record` and `--snapshot` pull from the **debug** camera matrices, so what you record is what you framed in the GUI. GIF cadence follows `--fps` on the wall clock, not one frame per physics step—same trick as the Kuka script linked above. Pillow is required.
@@ -281,34 +304,31 @@ z = side · L₁ sin(q₁) − D cos(q₁)
 
 ## Roadmap
 
-Rough plan:
-
 ```mermaid
 flowchart LR
-  V0["V0\nTest Stand"] --> V1["V1\nFull Quad"]
-  V1 --> V2["V2\nGaits"]
-  V2 --> V3["V3\nHardware"]
+  V0["V0\nPrimitives"] --> V1["V1\nCAD stand"]
+  V1 --> V2["V2\nQuadruped"]
+  V2 --> V3["V3\nGaits"]
+  V3 --> V4["V4\nHardware"]
 ```
 
-| Phase | Focus | Status |
-|-------|-------|--------|
-| V0 | Single leg, FK/IK, captures | mostly done |
-| V1 | Four legs + body posing | not started |
-| V2 | Trot / crawl / transitions | not started |
-| V3 | ESP32 / PWM bridge | not started |
+| Phase | What | Status |
+|-------|------|--------|
+| **V0** | Single leg, primitive URDF, sliders, IK demo, GIF/PNG capture | in good shape |
+| **V1** | Same test stand, mesh URDF + `meshes/*.stl` (exports not in repo yet) | waiting on CAD |
+| **V2** | Full body URDF, four legs, stand/sit poses, foot placement from body pose | not started |
+| **V3** | Scheduled gaits—trot, crawl, turns, maybe rough terrain hooks | not started |
+| **V4** | Talk to the real rig—ESP32, PWM calibration, later IMU if we need it | not started |
 
-**V0 checklist** — done items are boring on purpose; the tail is where the fun is:
+**V0 loose ends** (optional polish on the primitive leg):
 
-| # | Task | Status |
-|---|------|--------|
-| 0.1–0.4 | Layout, URDF, FK, IK | done |
-| 0.5–0.7 | `test_stand`, `ik_demo`, debug draw | done |
-| 0.8–0.9 | `view_capture`, README gallery, coronal record command | done |
-| 0.10 | Plot reachable workspace | todo |
-| 0.11 | Velocity / torque limits in IK | todo |
-| 0.12 | Jacobian / singularities | todo |
+| # | Task |
+|---|------|
+| 0.10 | Plot reachable workspace |
+| 0.11 | Velocity / torque limits in IK |
+| 0.12 | Jacobian / singularities |
 
-V1–V3 are sketched (body URDF, gait scheduler, serial bridge)—see the tables in git history if you want the full punch-list; we’ll grow them when we actually start those phases.
+**V1 before it’s “real”:** export STLs with link frames aligned to the URDF (or edit the URDF after a CAD round-trip), replace placeholder inertias with measured values if sim fidelity matters, and consider simplified collision meshes if full-res STLs are heavy.
 
 ---
 
@@ -343,6 +363,10 @@ One PyBullet connection at a time; if you’re debugging inside an IDE, try a pl
 ### URDF “not found”
 
 Run from repo root (the scripts resolve paths from `__file__`, but it saves headaches).
+
+### V1 exits immediately
+
+You haven’t added the mesh pack yet. The error lists the five STLs; export from CAD into `V1_test_stand/meshes/` or temporarily point `--urdf` at a copy of the V0 URDF if you’re only testing the wrapper.
 
 ### Where we’re stuck in general
 

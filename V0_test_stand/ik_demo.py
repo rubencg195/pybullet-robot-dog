@@ -129,7 +129,15 @@ def main():
         default="stand",
         help="stand=profile (default); iso; coronal",
     )
+    parser.add_argument(
+        "--urdf",
+        default=None,
+        metavar="PATH",
+        help="Alternate leg URDF (default: V0). Use V1 mesh URDF when meshes exist.",
+    )
     args = parser.parse_args()
+
+    urdf_path = os.path.abspath(args.urdf) if args.urdf else URDF_PATH
 
     if args.record or args.snapshot:
         try:
@@ -147,7 +155,8 @@ def main():
     p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
 
     p.loadURDF("plane.urdf")
-    robot = p.loadURDF(URDF_PATH, [0, 0, STAND_HEIGHT], useFixedBase=True)
+    print(f"[IK demo] URDF: {urdf_path}")
+    robot = p.loadURDF(urdf_path, [0, 0, STAND_HEIGHT], useFixedBase=True)
 
     joints = {}
     for i in range(p.getNumJoints(robot)):
