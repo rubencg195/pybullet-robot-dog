@@ -1,0 +1,152 @@
+<?xml version="1.0"?>
+<robot name="spot_micro_leg_test_stand">
+
+  <!--
+    SpotMicro-inspired single leg on a fixed test stand.
+    All links are simple cylinders / spheres (no meshes).
+
+    Dimensions:
+      L1 (shoulder offset)  = 0.055 m
+      L2 (upper leg / femur) = 0.107 m
+      L3 (lower leg / tibia) = 0.130 m
+  -->
+
+  <!-- ============ TEST STAND PLATFORM (fixed to world) ============ -->
+  <link name="base_link">
+    <visual>
+      <geometry><box size="0.12 0.12 0.01"/></geometry>
+      <material name="aluminum"><color rgba="0.7 0.7 0.7 1.0"/></material>
+    </visual>
+    <collision>
+      <geometry><box size="0.12 0.12 0.01"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="5.0"/>
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <!-- ============ HIP ABDUCTION (q1, around X) ============ -->
+  <joint name="hip_abduction" type="revolute">
+    <parent link="base_link"/>
+    <child  link="shoulder_link"/>
+    <origin xyz="0 0 -0.005" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.548" upper="0.548" effort="12" velocity="6.28"/>
+    <dynamics damping="0.1" friction="0.05"/>
+  </joint>
+
+  <link name="shoulder_link">
+    <!-- joint sphere -->
+    <visual>
+      <origin xyz="0 0 0"/>
+      <geometry><sphere radius="0.014"/></geometry>
+      <material name="joint_gray"><color rgba="0.45 0.45 0.45 1.0"/></material>
+    </visual>
+    <!-- lateral offset cylinder (along -Y) -->
+    <visual>
+      <origin xyz="0 -0.0275 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.012" length="0.055"/></geometry>
+      <material name="blue"><color rgba="0.20 0.45 0.85 1.0"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 -0.0275 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.012" length="0.055"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.10"/>
+      <origin xyz="0 -0.0275 0"/>
+      <inertia ixx="0.00005" ixy="0" ixz="0" iyy="0.00005" iyz="0" izz="0.00001"/>
+    </inertial>
+  </link>
+
+  <!-- ============ HIP FLEXION (q2, around Y) ============ -->
+  <joint name="hip_flexion" type="revolute">
+    <parent link="shoulder_link"/>
+    <child  link="upper_leg_link"/>
+    <origin xyz="0 -0.055 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.618" upper="2.618" effort="12" velocity="6.28"/>
+    <dynamics damping="0.1" friction="0.05"/>
+  </joint>
+
+  <link name="upper_leg_link">
+    <!-- joint sphere -->
+    <visual>
+      <origin xyz="0 0 0"/>
+      <geometry><sphere radius="0.013"/></geometry>
+      <material name="joint_gray"/>
+    </visual>
+    <!-- femur cylinder (along -Z) -->
+    <visual>
+      <origin xyz="0 0 -0.0535"/>
+      <geometry><cylinder radius="0.010" length="0.107"/></geometry>
+      <material name="red"><color rgba="0.85 0.25 0.20 1.0"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.0535"/>
+      <geometry><cylinder radius="0.010" length="0.107"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.15"/>
+      <origin xyz="0 0 -0.0535"/>
+      <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.00002"/>
+    </inertial>
+  </link>
+
+  <!-- ============ KNEE FLEXION (q3, around Y) ============ -->
+  <joint name="knee_flexion" type="revolute">
+    <parent link="upper_leg_link"/>
+    <child  link="lower_leg_link"/>
+    <origin xyz="0 0 -0.107" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.618" upper="2.618" effort="12" velocity="6.28"/>
+    <dynamics damping="0.1" friction="0.05"/>
+  </joint>
+
+  <link name="lower_leg_link">
+    <!-- joint sphere -->
+    <visual>
+      <origin xyz="0 0 0"/>
+      <geometry><sphere radius="0.012"/></geometry>
+      <material name="joint_gray"/>
+    </visual>
+    <!-- tibia cylinder (along -Z) -->
+    <visual>
+      <origin xyz="0 0 -0.065"/>
+      <geometry><cylinder radius="0.008" length="0.130"/></geometry>
+      <material name="dark_blue"><color rgba="0.12 0.22 0.60 1.0"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.065"/>
+      <geometry><cylinder radius="0.008" length="0.130"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.10"/>
+      <origin xyz="0 0 -0.065"/>
+      <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.00001"/>
+    </inertial>
+  </link>
+
+  <!-- ============ FOOT (fixed to tibia tip) ============ -->
+  <joint name="foot_fixed" type="fixed">
+    <parent link="lower_leg_link"/>
+    <child  link="foot_link"/>
+    <origin xyz="0 0 -0.130"/>
+  </joint>
+
+  <link name="foot_link">
+    <visual>
+      <geometry><sphere radius="0.015"/></geometry>
+      <material name="green"><color rgba="0.20 0.80 0.25 1.0"/></material>
+    </visual>
+    <collision>
+      <geometry><sphere radius="0.015"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.02"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+    </inertial>
+  </link>
+
+</robot>
