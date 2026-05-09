@@ -395,6 +395,40 @@ Bridge from simulation to the physical robot (ESP32 + servos).
 
 ## Troubleshooting
 
+This section doubles as a **project status log**: what is finished, what is blocking progress, and what to do next. Symptom-based fixes follow below.
+
+### Done (so far)
+
+| Area | Status |
+|------|--------|
+| **Repository** | Initial code on `main`; pushed to [github.com/rubencg195/pybullet-robot-dog](https://github.com/rubencg195/pybullet-robot-dog). |
+| **Layout** | `common/` (shared FK/IK + debug drawing), `V0_test_stand/` (URDF + scripts), `recordings/`, `requirements.txt`. |
+| **Model** | `V0_test_stand/urdf/leg_test_stand.urdf` — 3-DOF SpotMicro-style leg (cylinders/spheres), fixed test stand at 0.35 m. |
+| **Math** | `common/kinematics.py` — `LegConfig`, forward kinematics, geometric inverse kinematics, hip-frame conventions documented in README. |
+| **Viz** | `common/debug_visualizer.py` — trails, skeleton overlay, markers, HUD text, path polylines. |
+| **`test_stand.py`** | GUI sliders for three joints, green foot trail, FK vs PyBullet `getLinkState` check, **verbose terminal logs** every 120 steps (`[INIT]`, `[STEP …]`, `[DONE]`). |
+| **`ik_demo.py`** | Circle / line / step trajectories, IK-driven motion, optional GIF. |
+| **Docs** | README with Mermaid architecture diagrams, roadmap (V0–V3), and this troubleshooting guide. |
+
+### Blockers
+
+| Blocker | Detail | Mitigation |
+|---------|--------|------------|
+| **PyBullet not installed (dev machine)** | On a minimal Ubuntu/WSL image, `pip install pybullet` may try to **build from source** and fail with `g++` missing (`command 'x86_64-linux-gnu-g++' failed`). There is not always a pre-built wheel for your Python/OS combo. | Install a toolchain, then install deps: `sudo apt-get install -y build-essential python3-dev python3-pip python3-venv`, then use a venv: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`. |
+| **No system `pip` / PEP 668** | Some distros ship Python without `pip` or block `pip install` on the system interpreter. | Use `python3 -m venv .venv` and `pip install` inside the venv, or bootstrap pip with [get-pip.py](https://bootstrap.pypa.io/get-pip.py) using `--user` only if you accept that path. |
+| **GUI / display** | Headless agents, SSH without X11, or WSL without WSLg/X server cannot open `p.GUI`. | Use a real desktop, WSLg, VcXsrv/X410, or the [aws-pybullet-environment](https://github.com/rubencg195/aws-pybullet-environment) DCV desktop. For batch tests only, a future optional `p.DIRECT` mode could be added (not required for your interactive workflow). |
+| **CI / automated GUI test** | There is no GitHub Actions (or similar) job that exercises the PyBullet window in this repo yet. | Run `test_stand.py` / `ik_demo.py` locally or on the GPU workstation; add CI later with `DIRECT` + smoke assertions if desired. |
+
+### Next steps
+
+1. **Unblock the environment** — Install `build-essential`, `python3-dev`, and create a venv; confirm `python -c "import pybullet"` succeeds.
+2. **Run V0 interactively** — From repo root: `python V0_test_stand/test_stand.py` (watch GUI + terminal `[STEP …]` lines). Then try `python V0_test_stand/ik_demo.py --path circle`.
+3. **Optional recordings** — `python V0_test_stand/test_stand.py --record recordings/session.gif` (requires Pillow).
+4. **Roadmap follow-ups (V0)** — Workspace sampling / reachable volume plot; joint velocity limits in IK; Jacobian and singularity notes (see roadmap table in README).
+5. **V1 prep** — Body URDF, four leg mounts, body pose → foot placement (when you are ready to leave the single-leg stand).
+
+---
+
 ### PyBullet: "cannot open display" / OpenGL errors
 
 PyBullet GUI needs an OpenGL-capable display. On **WSL2**, either:
@@ -410,7 +444,7 @@ If you only need headless simulation (no window), use `p.connect(p.DIRECT)` inst
 pip install -r requirements.txt
 ```
 
-If you use a virtual environment, make sure it is activated before running.
+If you use a virtual environment, make sure it is activated before running. If install fails while **building** PyBullet, see **Blockers** above (`build-essential` / `g++`).
 
 ### IK returns None for targets that look reachable
 
