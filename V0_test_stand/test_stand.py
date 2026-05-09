@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
-"""V0 Test Stand — interactive single-leg control with joint sliders.
+"""Single SpotMicro-style leg on a fixed stand: drag degree sliders, watch the trail.
 
-Loads a SpotMicro-inspired 3-DOF leg on a fixed test stand.  The PyBullet
-**Params** panel shows **sliders**: three joints in **degrees** plus
-**Clear Trail**.  Default camera **stand** matches the physical test-stand
-**profile** (sagittal-style: yaw −90°, pitch −20°, target near hip).  Recording
-uses the **same** debug camera as the GUI (like ``interactive_robot_arm.py``).
+PyBullet's Params panel drives three joints plus Clear Trail. Default camera
+preset ``stand`` is the side/profile rig view; use ``coronal`` or ``iso`` for
+other angles. ``--record`` / ``--snapshot`` grab the same view as the GUI
+(same approach as aws-pybullet-environment's interactive_robot_arm.py).
 
-Usage
------
+Examples::
+
     python V0_test_stand/test_stand.py
-    python V0_test_stand/test_stand.py --camera iso
-    python V0_test_stand/test_stand.py --record recordings/v0_session.gif --fps 15
-    python V0_test_stand/test_stand.py --snapshot recordings/README_v0_still.png
+    python V0_test_stand/test_stand.py --camera iso --record out.gif --fps 15
 """
 
 import sys

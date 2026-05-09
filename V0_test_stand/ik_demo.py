@@ -1,21 +1,15 @@
 #!/usr/bin/env python3
-"""V0 IK Demo — trace target paths with inverse kinematics.
+"""Drive the test-stand leg along a scripted path with IK.
 
-Draws a target trajectory (orange), solves IK for each point, and
-drives the leg to follow it.  The actual foot path (green) is drawn
-on top so you can compare tracking accuracy.
+Orange polyline = target, green trail = where the foot actually lands. Paths:
+``circle`` (default, in XZ), ``line`` (sweep along X), ``step`` (flat stance +
+lofted swing). Same camera and ``--record`` / ``--snapshot`` flags as
+``test_stand.py``.
 
-Trajectory types
-----------------
-  circle  — vertical circle in the XZ plane (default)
-  line    — forward/backward sweep in X
-  step    — elliptical walking-step cycle (flat stance, arched swing)
+Examples::
 
-Usage
------
-    python V0_test_stand/ik_demo.py
     python V0_test_stand/ik_demo.py --path step --speed 0.3
-    python V0_test_stand/ik_demo.py --path circle --record recordings/ik_circle.gif
+    python V0_test_stand/ik_demo.py --record recordings/ik.gif --loops 2
 """
 
 import sys

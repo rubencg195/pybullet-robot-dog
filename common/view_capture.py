@@ -1,6 +1,6 @@
-"""Capture the PyBullet *debug* (GUI) camera — matches what you see on screen.
+"""Grab pixels from PyBullet's debug (GUI) camera so GIFs match what you framed.
 
-See aws-pybullet-environment ``interactive_robot_arm.py`` for the same pattern:
+Borrowed from the Kuka example in aws-pybullet-environment:
 https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py
 """
 

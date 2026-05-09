@@ -1,18 +1,10 @@
 """
-Forward and inverse kinematics for a 3-DOF SpotMicro-style leg.
+Closed-form FK/IK for a three-joint SpotMicro-ish leg in the hip frame.
 
-Coordinate system (hip-centric, right-hand rule):
-    X: forward
-    Y: lateral (positive = left)
-    Z: vertical (positive = up)
-
-Joint chain:
-    1. Hip abduction  (q1) — rotates around X axis
-    2. Hip flexion     (q2) — rotates around Y axis (after L1 lateral offset)
-    3. Knee flexion    (q3) — rotates around Y axis
-
-At zero angles the leg hangs straight down:
-    foot = (0, side_sign * L1, -(L2 + L3))
+Hip frame: X forward, Y left, Z up. Joints are abduction about X, then flexion
+about Y at the shoulder offset, then knee flexion about Y. With all angles at
+zero the foot hangs at (0, side_sign * L1, -(L2 + L3)) for a right leg
+(side_sign = -1).
 """
 
 import numpy as np

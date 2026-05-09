@@ -1,61 +1,50 @@
-# PyBullet Robot Dog
+# PyBullet robot dog
 
-Simulating a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-inspired quadruped robot in [PyBullet](https://pybullet.org/), starting with a single-leg test stand for kinematics validation and building toward a full walking robot.
+This repo is a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-style quadruped in [PyBullet](https://pybullet.org/). Right now it’s just **one leg on a test stand** (V0): you can drag sliders, watch the foot trace a path, and sanity-check forward and inverse kinematics before we bolt four legs onto a body.
 
-**Current focus: V0 — single leg on a test stand**, verifying forward and inverse kinematics with interactive joint control, path tracing, and **README-ready captures** (GIF/PNG from the same view as the GUI).
-
-The physical counterpart uses an ESP32, hobby servos, and an aluminum-extrusion test stand — the simulation lets us validate kinematics and gait trajectories before touching hardware.
+There’s a real build on the bench too—ESP32, servos, aluminium extrusion—so the sim is where we mess with poses without stripping gears.
 
 ---
 
-## V0 — main example (record + coronal camera)
+## Try this first
 
-Use this to **run the test stand**, pick the **coronal** camera (face-on from **+X**, abduction toward you), and **record** a GIF under `recordings/` for docs or sharing:
+Coronal camera (you’re looking along +X, abduction swings toward you) plus a GIF saved next to the other samples:
 
 ```bash
 bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15 --camera coronal
 ```
 
-1. Wait for the PyBullet window and **Params** sliders (**Hip / Knee in degrees**).
-2. Move the leg; the capture uses the **live debug camera** (you can orbit/zoom with the mouse — same method as [interactive_robot_arm.py](https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py)).
-3. Press **Ctrl+C** or close the window to **finish** and write the GIF (needs **Pillow** and a working PyBullet — see [Quick Start](#quick-start)).
+When the window opens, use the **Params** sliders on the right—they’re in **degrees**. Move the leg around; the recorder samples the **same** view you see (including if you orbit with the mouse), using the same idea as [interactive_robot_arm.py](https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py) in the aws-pybullet-environment repo. Stop with **Ctrl+C** or by closing the window so Pillow can flush the GIF. You’ll need Pillow and a PyBullet that actually imports—if that’s painful on your machine, jump to [Getting it running](#getting-it-running).
 
-**One still frame** for the README (PNG on exit):
+Still PNG when you quit:
 
 ```bash
 bash scripts/run_test_stand.sh --snapshot recordings/README_v0_test_stand.png --camera coronal
 ```
 
-### Gallery (committed assets)
+### What’s in `recordings/`
 
-Tracked captures live under `recordings/` with names allowed by `.gitignore` (prefix **`README_`**, plus **`PYB-SIM.png`** for the still below). Everything else in `recordings/` stays untracked.
+We only commit a few files from that folder (see `.gitignore`). Right now the README uses:
 
-| Animated (`README_v0_test_stand.gif`) | Still (`PYB-SIM.png`) |
-|:-------------------------------------:|:---------------------:|
-| ![V0 test stand session — coronal](recordings/README_v0_test_stand.gif) | ![V0 test stand — coronal still](recordings/PYB-SIM.png) |
+| GIF | PNG |
+|:---:|:---:|
+| ![session](recordings/README_v0_test_stand.gif) | ![still](recordings/PYB-SIM.png) |
 
 ---
 
-## What we have implemented (V0 summary)
+## What’s in the box (V0)
 
-| Piece | What it does |
-|-------|----------------|
-| **`V0_test_stand/urdf/leg_test_stand.urdf`** | 3-DOF leg (SpotMicro-style lengths), cylinders/spheres, fixed base at 0.35 m. |
-| **`common/kinematics.py`** | Closed-form FK/IK in the hip frame; `LegConfig` link lengths. |
-| **`common/debug_visualizer.py`** | Green foot trail, yellow skeleton, HUD text, target polylines. |
-| **`common/view_capture.py`** | Pixels from the **debug** camera (`getDebugVisualizerCamera` + view/projection matrices) so recordings match the GUI. |
-| **`V0_test_stand/test_stand.py`** | Sliders in **degrees**, joint limits from URDF, FK vs `getLinkState`, terminal `[STEP …]` logs, `--camera stand\|iso\|coronal`, `--record`, `--snapshot`. |
-| **`V0_test_stand/ik_demo.py`** | Circle / line / step IK demos; same camera and capture flags. |
-| **`scripts/`** | `check_v0_env.sh`, `run_test_stand.sh`, `run_ik_demo.sh` (pick Conda or `PY_ROBOT_DOG` when system PyBullet is missing). |
-| **Docs** | This README (architecture Mermaid, roadmap, troubleshooting, env blockers). |
+The leg lives in `V0_test_stand/urdf/leg_test_stand.urdf`—three revolute joints, stubby cylinders, green foot sphere, base parked at 0.35 m. Kinematics live in `common/kinematics.py` (closed-form FK/IK in the hip frame; tweak lengths via `LegConfig`). `common/debug_visualizer.py` draws the green trail, yellow stick figure, and the floating text. `common/view_capture.py` is the tiny helper that grabs pixels from the **debug** camera so recordings match the GUI.
+
+`test_stand.py` is the playground: degree sliders, URDF limit clamping, optional `--record` / `--snapshot`, three camera presets (`stand`, `iso`, `coronal`), and a line of telemetry every 120 sim steps. `ik_demo.py` drives circle / line / step paths with the same camera flags.
+
+Shell glue is under `scripts/`: `check_v0_env.sh` tells you which Python actually has `pybullet`, and the `run_*.sh` wrappers prefer `~/miniconda3` or `PY_ROBOT_DOG` when the system Python is empty-handed.
 
 ---
 
 ## Architecture
 
-### High-Level Overview
-
-Each project version lives in its own folder and shares a common kinematics and visualisation library. Versions build on each other: V0 validates the leg, V1 assembles four legs, V2 makes them walk, and V3 bridges to real hardware.
+Versions are split into folders so V0 doesn’t get stepped on when V1 adds a full body. Shared math stays in `common/`.
 
 ```mermaid
 flowchart LR
@@ -75,7 +64,7 @@ flowchart LR
   V2 -->|"bridges to HW"| V3
 ```
 
-### Detailed V0 Component Architecture
+### V0 data flow (dense, but one picture)
 
 ```mermaid
 flowchart TB
@@ -137,7 +126,7 @@ flowchart TB
   RENDER --> GIF
 ```
 
-### Leg Kinematic Chain
+### Leg chain
 
 ```mermaid
 flowchart LR
@@ -148,7 +137,7 @@ flowchart LR
   TIB --> FOOT["Foot\n15 mm sphere"]
 ```
 
-### IK Solver Flow
+### IK pipeline (geometric)
 
 ```mermaid
 flowchart TD
@@ -165,105 +154,56 @@ flowchart TD
 
 ---
 
-## Leg Dimensions (SpotMicro-inspired)
+## Leg numbers (SpotMicro-ish)
 
-| Segment | Symbol | Length | Description |
-|---------|--------|--------|-------------|
-| Shoulder offset | L1 | 55 mm | Lateral offset from hip abduction axis to hip flexion axis |
-| Upper leg (femur) | L2 | 107 mm | Hip flexion joint to knee joint |
-| Lower leg (tibia) | L3 | 130 mm | Knee joint to foot |
-| **Total vertical reach** | L2+L3 | **237 mm** | Maximum downward extent when leg is straight |
+Rough proportions we’re using:
 
-### Coordinate System
+- **L1** 55 mm — shoulder offset (abduction axis to flexion axis)
+- **L2** 107 mm — femur
+- **L3** 130 mm — tibia  
+Straight leg reaches **237 mm** below the hip line.
+
+Axes: **X** forward, **Y** left, **Z** up. Base plate sits at **z = 0.35 m**. With all joint angles at zero (right leg, `side_sign = -1`), the foot sits at **(0, −0.055, −0.237)** in the hip frame.
 
 ```
       Z (up)
       │
-      │       (test stand platform at z = 0.35 m)
+      │       (platform at z = 0.35 m)
       ╰──────→ X (forward)
      ╱
     Y (left)
-
-    ┌──────────┐
-    │TEST STAND│  ← fixed base, gray platform
-    └────┬─────┘
-         │
-    q1: Hip Abduction  (rotates around X axis, ±31°)
-         │
-    ╔════╧════╗
-    ║SHOULDER ║  ← L1 = 55 mm lateral offset (blue cylinder)
-    ╚════╤════╝
-         │
-    q2: Hip Flexion  (rotates around Y axis, ±150°)
-         │
-    ┌────┴────┐
-    │UPPER LEG│  ← L2 = 107 mm downward (red cylinder)
-    └────┬────┘
-         │
-    q3: Knee Flexion  (rotates around Y axis, ±150°)
-         │
-    ┌────┴────┐
-    │LOWER LEG│  ← L3 = 130 mm downward (dark blue cylinder)
-    └────┬────┘
-         │
-       (FOOT)   ← 15 mm sphere (green)
 ```
-
-At zero angles the foot hangs straight down at **(0, −0.055, −0.237)** relative to the hip (right leg).
 
 ---
 
-## Project Structure
+## Repo layout
 
 ```
 pybullet-robot-dog/
-├── README.md                            # This file (docs, roadmap, troubleshooting)
-├── requirements.txt                     # pybullet, numpy, Pillow
-├── .gitignore
-├── .gitattributes                       # LF enforcement for cross-platform consistency
-├── recordings/                          # Captures; tracked only if name starts with README_
-│   └── .gitkeep
+├── README.md
+├── requirements.txt
+├── recordings/          # mostly ignored; README_* and PYB-SIM.png are tracked
 ├── scripts/
-│   ├── check_v0_env.sh                  # Diagnose Python + numpy + pybullet (+ g++ hint)
-│   ├── run_test_stand.sh                # Run test_stand.py (-u, picks conda if available)
-│   └── run_ik_demo.sh                   # Run ik_demo.py (-u, same Python selection)
-├── common/                              # Shared library across all versions
-│   ├── __init__.py
-│   ├── kinematics.py                    # FK / IK solver for 3-DOF SpotMicro leg
-│   ├── debug_visualizer.py             # PyBullet debug drawing: trails, skeleton, HUD
-│   └── view_capture.py                  # RGBA from current debug-visualizer camera
-└── V0_test_stand/                       # V0: single leg on a fixed test stand
-    ├── __init__.py
-    ├── urdf/
-    │   └── leg_test_stand.urdf         # Cylinder + sphere URDF, no meshes
-    ├── test_stand.py                    # Interactive joint sliders + FK visualisation
-    └── ik_demo.py                       # IK path tracing (circle, line, step)
+│   ├── check_v0_env.sh
+│   ├── run_test_stand.sh
+│   └── run_ik_demo.sh
+├── common/
+│   ├── kinematics.py
+│   ├── debug_visualizer.py
+│   └── view_capture.py
+└── V0_test_stand/
+    ├── urdf/leg_test_stand.urdf
+    ├── test_stand.py
+    └── ik_demo.py
 ```
-
-### Why versioned folders?
-
-Each version represents a fundamentally different simulation stage (single leg → quad body → gaits → hardware). Keeping them in separate folders:
-
-- avoids breaking earlier experiments when iterating on later ones
-- makes it easy to run any version independently
-- keeps each version self-contained and easy to reason about
-
-Shared math and visualisation live in `common/` so there is no duplication of the core kinematics.
 
 ---
 
-## Quick Start
+## Getting it running
 
-The **primary workflow** is documented above: [`bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15 --camera coronal`](#v0--main-example-record--coronal-camera). The sections below cover environment setup and other modes.
+You want Python 3.10+ (older might work; we use `X | None` in a few places) and something that can open an OpenGL window. On WSL that often means WSLg, VcXsrv, or a remote desktop from [aws-pybullet-environment](https://github.com/rubencg195/aws-pybullet-environment).
 
-### Prerequisites
-
-- **Python 3.10+** (3.8+ may work but type hints use `X | None` syntax)
-- A display that supports OpenGL (PyBullet GUI). WSL2 users may need an X server (VcXsrv, WSLg) or run on the DCV remote desktop from the [aws-pybullet-environment](https://github.com/rubencg195/aws-pybullet-environment) project.
-
-### Install
-
-**Option A — venv + pip** (needs **`g++`** / `build-essential` on Linux when PyBullet builds from source):
+**venv + pip** — on many Linux installs PyBullet compiles from source, so you need a compiler:
 
 ```bash
 cd pybullet-robot-dog
@@ -272,351 +212,149 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**Option B — Miniconda** (no compiler; conda-forge ships a **prebuilt** PyBullet binary — useful on minimal WSL/Ubuntu):
+**Miniconda** — if `g++` isn’t there or pip keeps dying, conda-forge ships a binary:
 
 ```bash
-# One-time: install Miniconda to ~/miniconda3, then:
 conda install -y -c conda-forge pybullet numpy pillow
-# If conda asks you to accept Anaconda ToS for defaults:
-#   conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
-#   conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+# if conda nags about ToS on defaults:
+# conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+# conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 ```
 
-Sanity check (picks system Python or `~/miniconda3` automatically):
+Smoke test:
 
 ```bash
 bash scripts/check_v0_env.sh
 ```
 
-### Run the Interactive Test Stand
+### Test stand
 
 ```bash
-# Wrapper: prefers ~/miniconda3 if it imports pybullet; unbuffered logs (-u)
 bash scripts/run_test_stand.sh
-
-# Same as the README gallery example (coronal + GIF):
+# or, explicitly:
 bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15 --camera coronal
-
-# Equivalent if your venv is already activated:
-python -u V0_test_stand/test_stand.py
+python -u V0_test_stand/test_stand.py   # if your venv is already active
 ```
 
-In the **Params** panel on the right, PyBullet shows **user debug sliders** (often called “sliders” or mistyped “slides”). They are not physics objects — they are UI controls that set each joint’s **target angle** for the position controller:
+The **Params** panel sliders are PyBullet “user parameters”—they’re UI, not part of the physics. They set joint **targets** in degrees (we clamp to the URDF). **Clear Trail** just nukes the green path.
 
-| Slider (label) | Joint | Range (degrees on the slider) |
-|----------------|-------|-------------------------------|
-| **Hip Abduction (deg)** | q1 — ab/adduction (lateral swing) | about ±31° |
-| **Hip Flexion (deg)** | q2 — flexion in the sagittal plane | about ±150° |
-| **Knee Flexion (deg)** | q3 — knee bend | about ±150° |
-| **Clear Trail** | n/a | move the handle to clear the green foot trail |
+Cameras: **`stand`** is the side/profile rig shot (default before we cared about naming); **`iso`** is the old 45° corner; **`coronal`** is the face-on +X view used in the gallery GIF.
 
-Values are shown and edited in **degrees**; the script converts to radians for PyBullet (clamped to URDF limits).
+Green = foot trace, yellow = skeleton overlay, HUD = angles and a quick FK check against `getLinkState`.
 
-**Camera presets** (`--camera`):
-
-| Preset | Use |
-|--------|-----|
-| **`stand`** (default) | Test-stand **profile** — matches the usual side/profile shot (yaw −90°, pitch −20°, target near hip), like the physical rig and patent figure. |
-| **`iso`** | Older isometric corner view (yaw 45°). |
-| **`coronal`** | Face the leg from **+X** (abduction opens toward the camera). |
-
-```bash
-bash scripts/run_test_stand.sh --camera iso
-bash scripts/run_test_stand.sh --camera coronal
-```
-
-A **green trail** traces the foot path. The **yellow skeleton** overlay and **HUD text** update every frame showing joint angles, foot position in hip frame, total reach, and FK error (difference between our math and PyBullet's internal FK — should be near zero).
-
-A **Clear Trail** button resets the green path.
-
-### Run the IK Demo
+### IK demo
 
 ```bash
 bash scripts/run_ik_demo.sh
-
-# Examples (extra args pass through):
 bash scripts/run_ik_demo.sh --path line
 bash scripts/run_ik_demo.sh --path step --loops 2 --record recordings/ik_step.gif
 ```
 
-Or with an explicit interpreter:
+Orange = commanded path, red dot = current target, green = where the foot actually went, yellow sticks = leg.
 
-```bash
-# Circle trajectory (default) — vertical circle in XZ plane
-python -u V0_test_stand/ik_demo.py
+If you have two Pythons fighting, force one: `export PY_ROBOT_DOG=/path/to/python`.
 
-# Forward/backward line sweep
-python -u V0_test_stand/ik_demo.py --path line
+### Recording notes
 
-# Walking step cycle (flat stance + arched swing)
-python -u V0_test_stand/ik_demo.py --path step
-
-# Larger circle, slower
-python -u V0_test_stand/ik_demo.py --path circle --radius 0.05 --speed 0.3
-
-# Record to GIF (2 loops, then exit)
-python -u V0_test_stand/ik_demo.py --path step --loops 2 --record recordings/ik_step.gif
-```
-
-Set **`PY_ROBOT_DOG=/path/to/python`** if both conda and system Python exist and you want to force one.
-
-| Colour | Meaning |
-|--------|---------|
-| **Orange** path | Target trajectory (drawn once at start) |
-| **Red** dot | Current target point (moves along path) |
-| **Green** trail | Actual foot path computed by IK |
-| **Yellow** lines | Leg skeleton overlay |
-
-The HUD shows solved joint angles and tracking error in millimetres.
-
-### Recording (GIF) and README stills (PNG)
-
-`--record` and `--snapshot` use **`getDebugVisualizerCamera` + `computeViewMatrixFromYawPitchRoll`**, so captures match **what you see in the GUI** (including orbit/zoom if you move the mouse). GIF frames follow **`--fps`** (wall-clock), not one frame per physics step — same pattern as [interactive_robot_arm.py](https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py).
-
-**Canonical README capture** (also the [main example](#v0--main-example-record--coronal-camera) at the top):
-
-```bash
-bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15 --camera coronal
-```
-
-Other useful invocations:
-
-```bash
-bash scripts/run_test_stand.sh --record recordings/session.gif --fps 15 --width 1024 --height 768 --camera stand
-bash scripts/run_test_stand.sh --snapshot recordings/README_v0_test_stand.png --camera coronal --width 1200 --height 800
-```
-
-Requires **Pillow** (`pip install Pillow`, in `requirements.txt`).
+`--record` and `--snapshot` pull from the **debug** camera matrices, so what you record is what you framed in the GUI. GIF cadence follows `--fps` on the wall clock, not one frame per physics step—same trick as the Kuka script linked above. Pillow is required.
 
 ---
 
-## Kinematics Reference
+## Kinematics (quick reference)
 
-### Forward Kinematics
-
-Given joint angles \( (q_1, q_2, q_3) \) and link lengths \( (L_1, L_2, L_3) \), the foot position relative to the hip for a right leg (`side_sign = -1`):
+**FK** for a right leg (`side_sign = -1`), foot in hip frame:
 
 ```
 x = −L₂ sin(q₂) − L₃ sin(q₂ + q₃)
 
-D = L₂ cos(q₂) + L₃ cos(q₂ + q₃)     [sagittal-plane reach]
+D = L₂ cos(q₂) + L₃ cos(q₂ + q₃)
 
 y = side · L₁ cos(q₁) + D sin(q₁)
 z = side · L₁ sin(q₁) − D cos(q₁)
 ```
 
-The `forward_kinematics_full()` variant also returns intermediate positions (hip, shoulder, knee) for drawing the skeleton.
+`forward_kinematics_full()` also returns hip / shoulder / knee points for drawing.
 
-### Inverse Kinematics
-
-Given target `(px, py, pz)` in the hip frame:
-
-1. **Knee (q3):** Law of cosines in the leg sagittal plane.
-2. **Hip flexion (q2):** Two-argument arctangent decomposition.
-3. **Hip abduction (q1):** Geometric projection in the YZ plane.
-
-Returns `None` when the target is outside the reachable workspace (too far, too close to the abduction axis, or inside the shoulder-offset sphere).
-
-See `common/kinematics.py` for the full implementation.
+**IK** is geometric: knee from law of cosines, then hip flexion, then abduction. It hands back `None` if the point is past full extension, inside the shoulder sphere, or otherwise silly. Details are in `common/kinematics.py`.
 
 ---
 
 ## Roadmap
 
-**Status labels:** DONE · IN PROGRESS · NOT STARTED
-
-### At a Glance
-
-| Phase | Focus | Status |
-|-------|-------|--------|
-| **V0** | Single-leg test stand — FK/IK validation | IN PROGRESS |
-| **V1** | Full quadruped body — standing and posing | NOT STARTED |
-| **V2** | Walking gaits — trot, crawl, transitions | NOT STARTED |
-| **V3** | Hardware bridge — ESP32 + servo control | NOT STARTED |
+Rough plan:
 
 ```mermaid
 flowchart LR
-  V0["V0\nTest Stand\n(current)"] --> V1["V1\nFull Quad\nStanding"]
-  V1 --> V2["V2\nWalking\nGaits"]
-  V2 --> V3["V3\nHardware\nBridge"]
+  V0["V0\nTest Stand"] --> V1["V1\nFull Quad"]
+  V1 --> V2["V2\nGaits"]
+  V2 --> V3["V3\nHardware"]
 ```
 
----
+| Phase | Focus | Status |
+|-------|-------|--------|
+| V0 | Single leg, FK/IK, captures | mostly done |
+| V1 | Four legs + body posing | not started |
+| V2 | Trot / crawl / transitions | not started |
+| V3 | ESP32 / PWM bridge | not started |
 
-### V0 — Single Leg Test Stand (IN PROGRESS)
-
-Simulate one SpotMicro leg fixed in the air on a test stand, validate FK/IK, and draw foot trajectories.
-
-| # | Task | Status | Notes |
-|---|------|--------|-------|
-| 0.1 | Project structure (versioned folders + common lib) | DONE | `common/`, `V0_test_stand/`, `recordings/` |
-| 0.2 | URDF model — cylinder-based 3-DOF leg on fixed stand | DONE | `leg_test_stand.urdf`, L1=55mm L2=107mm L3=130mm |
-| 0.3 | Forward kinematics implementation | DONE | `common/kinematics.py`, verified against PyBullet |
-| 0.4 | Inverse kinematics (geometric, closed-form) | DONE | Handles unreachable targets, configurable knee sign |
-| 0.5 | Interactive test stand with GUI sliders | DONE | `test_stand.py`, foot trail, skeleton, HUD, FK error |
-| 0.6 | IK demo with path tracing (circle, line, step) | DONE | `ik_demo.py`, target vs actual comparison |
-| 0.7 | Debug visualiser (trails, markers, HUD) | DONE | `common/debug_visualizer.py` |
-| 0.8 | GIF/PNG capture | DONE | `common/view_capture.py`, `--record` / `--snapshot`, debug camera match GUI ([interactive_robot_arm.py](https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py) pattern) |
-| 0.9 | Documentation + README gallery | DONE | Architecture Mermaid, troubleshooting; gallery `recordings/README_v0_test_stand.gif`, `recordings/PYB-SIM.png`; main example `run_test_stand.sh --record … --fps 15 --camera coronal` |
-| 0.10 | Workspace visualisation — plot reachable volume | NOT STARTED | Sample many joint configs, plot foot positions |
-| 0.11 | Joint velocity and torque limits in IK | NOT STARTED | Trajectory smoothing, jerk limits |
-| 0.12 | Jacobian computation and singularity detection | NOT STARTED | Useful for later impedance control |
-
----
-
-### V1 — Full Quadruped Body (NOT STARTED)
-
-Assemble four legs on a SpotMicro body, control standing height and body orientation (roll, pitch, yaw).
+**V0 checklist** — done items are boring on purpose; the tail is where the fun is:
 
 | # | Task | Status |
 |---|------|--------|
-| 1.1 | Full-body URDF (4 legs + body box) | NOT STARTED |
-| 1.2 | Body-to-leg transforms (FR, FL, RR, RL) | NOT STARTED |
-| 1.3 | Body pose control (height, roll, pitch, yaw) | NOT STARTED |
-| 1.4 | Foot placement solver (given body pose → all feet on ground) | NOT STARTED |
-| 1.5 | Interactive body pose sliders | NOT STARTED |
+| 0.1–0.4 | Layout, URDF, FK, IK | done |
+| 0.5–0.7 | `test_stand`, `ik_demo`, debug draw | done |
+| 0.8–0.9 | `view_capture`, README gallery, coronal record command | done |
+| 0.10 | Plot reachable workspace | todo |
+| 0.11 | Velocity / torque limits in IK | todo |
+| 0.12 | Jacobian / singularities | todo |
 
----
-
-### V2 — Walking Gaits (NOT STARTED)
-
-Implement and switch between common quadruped gaits.
-
-| # | Task | Status |
-|---|------|--------|
-| 2.1 | Gait scheduler (phase timing per leg) | NOT STARTED |
-| 2.2 | Trot gait (diagonal pairs) | NOT STARTED |
-| 2.3 | Crawl / creep gait (one leg at a time) | NOT STARTED |
-| 2.4 | Walk gait (wave pattern) | NOT STARTED |
-| 2.5 | Turning (differential step length) | NOT STARTED |
-| 2.6 | Terrain adaptation (basic) | NOT STARTED |
-
----
-
-### V3 — Hardware Bridge (NOT STARTED)
-
-Bridge from simulation to the physical robot (ESP32 + servos).
-
-| # | Task | Status |
-|---|------|--------|
-| 3.1 | Serial/WiFi protocol for joint commands | NOT STARTED |
-| 3.2 | ESP32 firmware for servo PWM | NOT STARTED |
-| 3.3 | Servo calibration tool (map angles → PWM) | NOT STARTED |
-| 3.4 | Real-time control loop (sim → hardware sync) | NOT STARTED |
-| 3.5 | IMU integration and feedback | NOT STARTED |
+V1–V3 are sketched (body URDF, gait scheduler, serial bridge)—see the tables in git history if you want the full punch-list; we’ll grow them when we actually start those phases.
 
 ---
 
 ## Troubleshooting
 
-This section doubles as a **project status log**: what is finished, what is blocking progress, and what to do next. Symptom-based fixes follow below.
+### It dies on import
 
-### Why the V0 sim fails immediately (root cause)
+Run `bash scripts/check_v0_env.sh`. Typical failures:
 
-Run this from the repo root for a structured report:
+- **`No module named numpy`** — install deps in an active venv: `pip install -r requirements.txt`.
+- **`No module named pybullet`** — pip tried to compile Bullet and you don’t have `g++`. Install `build-essential` + `python3-dev`, or grab PyBullet from conda-forge (see above). The error `x86_64-linux-gnu-g++' failed` is exactly that.
+- **Display / `Error 11`** — no GL context. Fix `DISPLAY`, use WSLg, or run on a machine with a real window.
 
-```bash
-bash scripts/check_v0_env.sh
-```
+On stripped-down Ubuntu/WSL, missing **build-essential** is the usual villain.
 
-| Symptom | Root cause | Fix |
-|---------|------------|-----|
-| `ModuleNotFoundError: No module named 'numpy'` | Dependencies never installed (or wrong Python). | `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt` |
-| `ModuleNotFoundError: No module named 'pybullet'` | PyBullet not installed. Often **pip could not build it**. | Install a C++ toolchain, then reinstall (next row). |
-| Pip ends with `error: command 'x86_64-linux-gnu-g++' failed: No such file or directory` | **No C++ compiler** — PyBullet’s Linux wheels are not always published for every Python version; pip falls back to **building from source**, which needs `g++`. | `sudo apt-get install -y build-essential python3-dev` then `pip install -r requirements.txt` again, **or** use **Miniconda** + `conda install -c conda-forge pybullet` (see Quick Start). |
-| `Cannot connect to ... display` / `Error 11` / blank GUI | No OpenGL display (SSH, bad `DISPLAY`, WSL without WSLg). | Use WSLg, an X server, or a desktop machine; see [PyBullet display](#pybullet-cannot-open-display--opengl-errors) below. |
+### IK returns `None`
 
-**Summary:** On a typical minimal Ubuntu/WSL setup, the **first real blocker** is almost always **missing `build-essential`** so **`pybullet` never installs**; the script then crashes on `import pybullet` or, if numpy was skipped, on `import numpy`.
+Usually the target is out of workspace, too close to the hip line, or you mixed up hip frame vs world frame (remember the +0.35 m base height in Z).
 
-### Done (so far)
+### FK error not zero
 
-| Area | Status |
-|------|--------|
-| **Repository** | Code on `main`; [github.com/rubencg195/pybullet-robot-dog](https://github.com/rubencg195/pybullet-robot-dog). |
-| **Layout** | `common/`, `V0_test_stand/`, `recordings/README_*` (tracked media), `scripts/`, `requirements.txt`. |
-| **Model** | `leg_test_stand.urdf` — 3-DOF leg, fixed base 0.35 m. |
-| **Math** | `kinematics.py` — FK/IK, hip frame documented in README. |
-| **Viz** | `debug_visualizer.py` — trail, skeleton, HUD, paths. |
-| **Capture** | `view_capture.py` — debug-camera RGBA for GIF/PNG; time-based `--fps` recording. |
-| **`test_stand.py`** | Sliders in **degrees**, URDF clamp, `--camera stand\|iso\|coronal`, `--record`, `--snapshot`, `[STEP …]` logs, `isConnected` clean exit. |
-| **`ik_demo.py`** | IK paths + same camera/capture flags. |
-| **Tooling** | `check_v0_env.sh`, `run_test_stand.sh`, `run_ik_demo.sh` (Conda / `PY_ROBOT_DOG` fallback). |
-| **README media** | Example GIF/PNG in `recordings/README_*`; **main command** documented: `run_test_stand.sh --record … --fps 15 --camera coronal`. |
-| **Docs** | README: architecture Mermaid, [V0 summary](#what-we-have-implemented-v0-summary), roadmap, troubleshooting. |
+Position control takes a moment to settle; a few mm at a step boundary is normal, then it should hug `getLinkState` once the motors catch up.
 
-### Blockers
+### GIF looks wrong
 
-| Blocker | Detail | Mitigation |
-|---------|--------|------------|
-| **PyBullet not installed (dev machine)** | On a minimal Ubuntu/WSL image, `pip install pybullet` may try to **build from source** and fail with `g++` missing (`command 'x86_64-linux-gnu-g++' failed`). There is not always a pre-built wheel for your Python/OS combo. | Install a toolchain, then install deps: `sudo apt-get install -y build-essential python3-dev python3-pip python3-venv`, then use a venv: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`. |
-| **No system `pip` / PEP 668** | Some distros ship Python without `pip` or block `pip install` on the system interpreter. | Use `python3 -m venv .venv` and `pip install` inside the venv, or bootstrap pip with [get-pip.py](https://bootstrap.pypa.io/get-pip.py) using `--user` only if you accept that path. |
-| **GUI / display** | Headless agents, SSH without X11, or WSL without WSLg/X server cannot open `p.GUI`. | Use a real desktop, WSLg, VcXsrv/X410, or the [aws-pybullet-environment](https://github.com/rubencg195/aws-pybullet-environment) DCV desktop. For batch tests only, a future optional `p.DIRECT` mode could be added (not required for your interactive workflow). |
-| **CI / automated GUI test** | There is no GitHub Actions (or similar) job that exercises the PyBullet window in this repo yet. | Run `test_stand.py` / `ik_demo.py` locally or on the GPU workstation; add CI later with `DIRECT` + smoke assertions if desired. |
+We still render captures with TinyRenderer; if it looks softer than the live GL view, bump `--width` / `--height` or orbit before you record.
 
-### Next steps
+### Sliders dead / UI stuck
 
-1. **Unblock the environment** (if needed) — `bash scripts/check_v0_env.sh`; use venv + `pip install -r requirements.txt` or Miniconda + `conda-forge pybullet` (see [Blockers](#blockers)).
-2. **Run V0** — Main example: `bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15 --camera coronal`; then try `bash scripts/run_ik_demo.sh --path circle`.
-3. **Roadmap follow-ups (V0)** — Reachable workspace plot; joint velocity limits in IK; Jacobian / singularities (see roadmap table below).
-4. **V1 prep** — Body URDF, four leg mounts, body pose → foot placement.
+One PyBullet connection at a time; if you’re debugging inside an IDE, try a plain terminal.
 
----
+### URDF “not found”
 
-### PyBullet: "cannot open display" / OpenGL errors
+Run from repo root (the scripts resolve paths from `__file__`, but it saves headaches).
 
-PyBullet GUI needs an OpenGL-capable display. On **WSL2**, either:
-- Use **WSLg** (Windows 11 ships it by default — verify with `echo $DISPLAY`)
-- Install an X server like **VcXsrv** or **X410** and set `export DISPLAY=:0`
-- Run on the [aws-pybullet-environment](https://github.com/rubencg195/aws-pybullet-environment) DCV remote desktop instead
+### Where we’re stuck in general
 
-If you only need headless simulation (no window), use `p.connect(p.DIRECT)` instead of `p.GUI`.
-
-### ImportError: No module named 'pybullet'
-
-```bash
-pip install -r requirements.txt
-```
-
-If you use a virtual environment, make sure it is activated before running. If install fails while **building** PyBullet, see **Blockers** above (`build-essential` / `g++`).
-
-### IK returns None for targets that look reachable
-
-The geometric IK solver returns `None` when:
-1. The target is **further** than L2 + L3 from the hip flexion axis
-2. The target is **closer** than |L2 − L3| (elbow lock)
-3. The target is **inside the shoulder-offset sphere** (distance from hip < L1)
-4. The YZ distance from hip is less than L1 (too close to the abduction axis)
-
-Check the target coordinates and verify they are in the **hip frame** (not world frame). The hip frame origin is at the hip abduction joint; the world frame includes the stand height offset (0.35 m in Z).
-
-### FK error is not exactly zero
-
-A small FK error (< 0.001 m) between our math and PyBullet's `getLinkState` is normal — PyBullet uses position control with finite gains and time stepping, so the joints need a few steps to converge. The error should settle below 0.0001 m within ~50 ms of holding steady angles.
-
-### GIF recording is blank or shows the wrong view
-
-The recording uses `p.ER_TINY_RENDERER` (CPU renderer) which may produce slightly different output than the GPU viewport. Camera angle is fixed to the initial `resetDebugVisualizerCamera` call. Adjust `--width` and `--height` to match your desired aspect ratio.
-
-### Sliders don't respond / window freezes
-
-PyBullet's GUI loop runs in the main thread. Make sure no other PyBullet connection is active. On some systems, running from an IDE debugger can interfere with the GUI event loop — try running directly from the terminal.
-
-### "leg_test_stand.urdf not found"
-
-The scripts resolve the URDF path relative to their own location. Run them from the repo root:
-
-```bash
-python V0_test_stand/test_stand.py
-```
-
-Not from inside the `V0_test_stand/` directory (though that should also work since we use `__file__` for path resolution).
+- **No CI** that opens a real GUI—run locally or on the DCV box.
+- **PEP 668** distros: use a venv, don’t fight the system Python.
 
 ---
 
 ## References
 
-- [SpotMicro ESP32](https://github.com/michaelkubina/SpotMicroESP32) — open-source SpotMicro build with ESP32
-- [SpotMicro AI](https://github.com/FlorianWilworeit/SpotMicroAI) — gait research and simulation
-- [PyBullet Quickstart Guide](https://docs.google.com/document/d/10sXEhzFRSnvFcl3XxNGhnD4N2SedqwdAvK3dsihxVUA/edit)
-- [MIT Mini Cheetah](https://github.com/mit-biomimetics/Cheetah-Software) — reference quadruped control
-- [aws-pybullet-environment](https://github.com/rubencg195/aws-pybullet-environment) — GPU remote desktop for PyBullet (companion project)
+- [SpotMicro ESP32](https://github.com/michaelkubina/SpotMicroESP32)
+- [SpotMicro AI](https://github.com/FlorianWilworeit/SpotMicroAI)
+- [PyBullet quickstart](https://docs.google.com/document/d/10sXEhzFRSnvFcl3XxNGhnD4N2SedqwdAvK3dsihxVUA/edit)
+- [MIT Mini Cheetah software](https://github.com/mit-biomimetics/Cheetah-Software)
+- [aws-pybullet-environment](https://github.com/rubencg195/aws-pybullet-environment) — remote GPU desktop we’ve used for PyBullet before
