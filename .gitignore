@@ -11,6 +11,7 @@ venv/
 recordings/*
 !recordings/.gitkeep
 !recordings/README*
+!recordings/PYB-SIM.png
 
 *.swp
 *.swo

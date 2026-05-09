@@ -2,26 +2,52 @@
 
 Simulating a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-inspired quadruped robot in [PyBullet](https://pybullet.org/), starting with a single-leg test stand for kinematics validation and building toward a full walking robot.
 
-**Current focus: V0 — single leg on a test stand**, verifying forward and inverse kinematics with interactive joint control and path tracing in simulation.
+**Current focus: V0 — single leg on a test stand**, verifying forward and inverse kinematics with interactive joint control, path tracing, and **README-ready captures** (GIF/PNG from the same view as the GUI).
 
 The physical counterpart uses an ESP32, hobby servos, and an aluminum-extrusion test stand — the simulation lets us validate kinematics and gait trajectories before touching hardware.
 
-### Screenshots (V0)
+---
 
-Add assets under `recordings/` with a **`README_` prefix** so git tracks them (see `.gitignore`). Capture the **same view as the GUI** using the debug camera (same idea as [interactive_robot_arm.py](https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py) in aws-pybullet-environment):
+## V0 — main example (record + coronal camera)
 
-| Still (PNG) | Animated (GIF) |
-|-------------|----------------|
-| ![V0 test stand](recordings/README_v0_test_stand.png) | ![V0 test stand GIF](recordings/README_v0_test_stand.gif) |
-
-Generate locally (pose the leg, then close the window or Ctrl+C):
+Use this to **run the test stand**, pick the **coronal** camera (face-on from **+X**, abduction toward you), and **record** a GIF under `recordings/` for docs or sharing:
 
 ```bash
-bash scripts/run_test_stand.sh --snapshot recordings/README_v0_test_stand.png
-bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15
+bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15 --camera coronal
 ```
 
-Commit the new `recordings/README_*` files when you are happy with them.
+1. Wait for the PyBullet window and **Params** sliders (**Hip / Knee in degrees**).
+2. Move the leg; the capture uses the **live debug camera** (you can orbit/zoom with the mouse — same method as [interactive_robot_arm.py](https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py)).
+3. Press **Ctrl+C** or close the window to **finish** and write the GIF (needs **Pillow** and a working PyBullet — see [Quick Start](#quick-start)).
+
+**One still frame** for the README (PNG on exit):
+
+```bash
+bash scripts/run_test_stand.sh --snapshot recordings/README_v0_test_stand.png --camera coronal
+```
+
+### Gallery (committed assets)
+
+Tracked captures live under `recordings/` with names allowed by `.gitignore` (prefix **`README_`**, plus **`PYB-SIM.png`** for the still below). Everything else in `recordings/` stays untracked.
+
+| Animated (`README_v0_test_stand.gif`) | Still (`PYB-SIM.png`) |
+|:-------------------------------------:|:---------------------:|
+| ![V0 test stand session — coronal](recordings/README_v0_test_stand.gif) | ![V0 test stand — coronal still](recordings/PYB-SIM.png) |
+
+---
+
+## What we have implemented (V0 summary)
+
+| Piece | What it does |
+|-------|----------------|
+| **`V0_test_stand/urdf/leg_test_stand.urdf`** | 3-DOF leg (SpotMicro-style lengths), cylinders/spheres, fixed base at 0.35 m. |
+| **`common/kinematics.py`** | Closed-form FK/IK in the hip frame; `LegConfig` link lengths. |
+| **`common/debug_visualizer.py`** | Green foot trail, yellow skeleton, HUD text, target polylines. |
+| **`common/view_capture.py`** | Pixels from the **debug** camera (`getDebugVisualizerCamera` + view/projection matrices) so recordings match the GUI. |
+| **`V0_test_stand/test_stand.py`** | Sliders in **degrees**, joint limits from URDF, FK vs `getLinkState`, terminal `[STEP …]` logs, `--camera stand\|iso\|coronal`, `--record`, `--snapshot`. |
+| **`V0_test_stand/ik_demo.py`** | Circle / line / step IK demos; same camera and capture flags. |
+| **`scripts/`** | `check_v0_env.sh`, `run_test_stand.sh`, `run_ik_demo.sh` (pick Conda or `PY_ROBOT_DOG` when system PyBullet is missing). |
+| **Docs** | This README (architecture Mermaid, roadmap, troubleshooting, env blockers). |
 
 ---
 
@@ -86,7 +112,7 @@ flowchart TB
     MARKERS["Joint Markers\nColoured crosses at each joint"]
     HUD["Debug HUD\nAngles · Foot pos · FK error"]
     TARGET["Target Path\nOrange reference trajectory"]
-    GIF["GIF Recording\n--record flag → Pillow"]
+    GIF["GIF/PNG\nview_capture.py\n--record · --snapshot"]
   end
 
   SLIDERS --> TS
@@ -228,6 +254,8 @@ Shared math and visualisation live in `common/` so there is no duplication of th
 
 ## Quick Start
 
+The **primary workflow** is documented above: [`bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15 --camera coronal`](#v0--main-example-record--coronal-camera). The sections below cover environment setup and other modes.
+
 ### Prerequisites
 
 - **Python 3.10+** (3.8+ may work but type hints use `X | None` syntax)
@@ -263,8 +291,11 @@ bash scripts/check_v0_env.sh
 ### Run the Interactive Test Stand
 
 ```bash
-# Uses Miniconda if it has pybullet, else system python3 — unbuffered logs (-u)
+# Wrapper: prefers ~/miniconda3 if it imports pybullet; unbuffered logs (-u)
 bash scripts/run_test_stand.sh
+
+# Same as the README gallery example (coronal + GIF):
+bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15 --camera coronal
 
 # Equivalent if your venv is already activated:
 python -u V0_test_stand/test_stand.py
@@ -340,14 +371,19 @@ The HUD shows solved joint angles and tracking error in millimetres.
 
 ### Recording (GIF) and README stills (PNG)
 
-`--record` and `--snapshot` use **`getDebugVisualizerCamera` + `computeViewMatrixFromYawPitchRoll`**, so captures match **what you see in the GUI** (including camera orbit/zoom if you move the mouse). Frames are grabbed on a **time schedule** (`--fps` for GIFs), not every physics step — same pattern as [interactive_robot_arm.py](https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py).
+`--record` and `--snapshot` use **`getDebugVisualizerCamera` + `computeViewMatrixFromYawPitchRoll`**, so captures match **what you see in the GUI** (including orbit/zoom if you move the mouse). GIF frames follow **`--fps`** (wall-clock), not one frame per physics step — same pattern as [interactive_robot_arm.py](https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py).
+
+**Canonical README capture** (also the [main example](#v0--main-example-record--coronal-camera) at the top):
 
 ```bash
-# Animated GIF (keep the window open a few seconds)
-bash scripts/run_test_stand.sh --record recordings/session.gif --fps 15 --width 1024 --height 768
+bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15 --camera coronal
+```
 
-# Single PNG on exit (Ctrl+C or close window) — good for README figures
-bash scripts/run_test_stand.sh --snapshot recordings/README_v0_test_stand.png --width 1200 --height 800
+Other useful invocations:
+
+```bash
+bash scripts/run_test_stand.sh --record recordings/session.gif --fps 15 --width 1024 --height 768 --camera stand
+bash scripts/run_test_stand.sh --snapshot recordings/README_v0_test_stand.png --camera coronal --width 1200 --height 800
 ```
 
 Requires **Pillow** (`pip install Pillow`, in `requirements.txt`).
@@ -420,8 +456,8 @@ Simulate one SpotMicro leg fixed in the air on a test stand, validate FK/IK, and
 | 0.5 | Interactive test stand with GUI sliders | DONE | `test_stand.py`, foot trail, skeleton, HUD, FK error |
 | 0.6 | IK demo with path tracing (circle, line, step) | DONE | `ik_demo.py`, target vs actual comparison |
 | 0.7 | Debug visualiser (trails, markers, HUD) | DONE | `common/debug_visualizer.py` |
-| 0.8 | GIF recording support | DONE | `--record` flag on both scripts |
-| 0.9 | Documentation (README with architecture diagrams) | DONE | This file |
+| 0.8 | GIF/PNG capture | DONE | `common/view_capture.py`, `--record` / `--snapshot`, debug camera match GUI ([interactive_robot_arm.py](https://github.com/rubencg195/aws-pybullet-environment/blob/main/scripts/interactive_robot_arm.py) pattern) |
+| 0.9 | Documentation + README gallery | DONE | Architecture Mermaid, troubleshooting; gallery `recordings/README_v0_test_stand.gif`, `recordings/PYB-SIM.png`; main example `run_test_stand.sh --record … --fps 15 --camera coronal` |
 | 0.10 | Workspace visualisation — plot reachable volume | NOT STARTED | Sample many joint configs, plot foot positions |
 | 0.11 | Joint velocity and torque limits in IK | NOT STARTED | Trajectory smoothing, jerk limits |
 | 0.12 | Jacobian computation and singularity detection | NOT STARTED | Useful for later impedance control |
@@ -496,14 +532,17 @@ bash scripts/check_v0_env.sh
 
 | Area | Status |
 |------|--------|
-| **Repository** | Initial code on `main`; pushed to [github.com/rubencg195/pybullet-robot-dog](https://github.com/rubencg195/pybullet-robot-dog). |
-| **Layout** | `common/` (shared FK/IK + debug drawing), `V0_test_stand/` (URDF + scripts), `recordings/`, `requirements.txt`. |
-| **Model** | `V0_test_stand/urdf/leg_test_stand.urdf` — 3-DOF SpotMicro-style leg (cylinders/spheres), fixed test stand at 0.35 m. |
-| **Math** | `common/kinematics.py` — `LegConfig`, forward kinematics, geometric inverse kinematics, hip-frame conventions documented in README. |
-| **Viz** | `common/debug_visualizer.py` — trails, skeleton overlay, markers, HUD text, path polylines. |
-| **`test_stand.py`** | GUI sliders for three joints, green foot trail, FK vs PyBullet `getLinkState` check, **verbose terminal logs** every 120 steps (`[INIT]`, `[STEP …]`, `[DONE]`). |
-| **`ik_demo.py`** | Circle / line / step trajectories, IK-driven motion, optional GIF. |
-| **Docs** | README with Mermaid architecture diagrams, roadmap (V0–V3), and this troubleshooting guide. |
+| **Repository** | Code on `main`; [github.com/rubencg195/pybullet-robot-dog](https://github.com/rubencg195/pybullet-robot-dog). |
+| **Layout** | `common/`, `V0_test_stand/`, `recordings/README_*` (tracked media), `scripts/`, `requirements.txt`. |
+| **Model** | `leg_test_stand.urdf` — 3-DOF leg, fixed base 0.35 m. |
+| **Math** | `kinematics.py` — FK/IK, hip frame documented in README. |
+| **Viz** | `debug_visualizer.py` — trail, skeleton, HUD, paths. |
+| **Capture** | `view_capture.py` — debug-camera RGBA for GIF/PNG; time-based `--fps` recording. |
+| **`test_stand.py`** | Sliders in **degrees**, URDF clamp, `--camera stand\|iso\|coronal`, `--record`, `--snapshot`, `[STEP …]` logs, `isConnected` clean exit. |
+| **`ik_demo.py`** | IK paths + same camera/capture flags. |
+| **Tooling** | `check_v0_env.sh`, `run_test_stand.sh`, `run_ik_demo.sh` (Conda / `PY_ROBOT_DOG` fallback). |
+| **README media** | Example GIF/PNG in `recordings/README_*`; **main command** documented: `run_test_stand.sh --record … --fps 15 --camera coronal`. |
+| **Docs** | README: architecture Mermaid, [V0 summary](#what-we-have-implemented-v0-summary), roadmap, troubleshooting. |
 
 ### Blockers
 
@@ -516,11 +555,10 @@ bash scripts/check_v0_env.sh
 
 ### Next steps
 
-1. **Unblock the environment** — Install `build-essential`, `python3-dev`, and create a venv; confirm `python -c "import pybullet"` succeeds.
-2. **Run V0 interactively** — From repo root: `python V0_test_stand/test_stand.py` (watch GUI + terminal `[STEP …]` lines). Then try `python V0_test_stand/ik_demo.py --path circle`.
-3. **Optional recordings** — `python V0_test_stand/test_stand.py --record recordings/session.gif` (requires Pillow).
-4. **Roadmap follow-ups (V0)** — Workspace sampling / reachable volume plot; joint velocity limits in IK; Jacobian and singularity notes (see roadmap table in README).
-5. **V1 prep** — Body URDF, four leg mounts, body pose → foot placement (when you are ready to leave the single-leg stand).
+1. **Unblock the environment** (if needed) — `bash scripts/check_v0_env.sh`; use venv + `pip install -r requirements.txt` or Miniconda + `conda-forge pybullet` (see [Blockers](#blockers)).
+2. **Run V0** — Main example: `bash scripts/run_test_stand.sh --record recordings/README_v0_test_stand.gif --fps 15 --camera coronal`; then try `bash scripts/run_ik_demo.sh --path circle`.
+3. **Roadmap follow-ups (V0)** — Reachable workspace plot; joint velocity limits in IK; Jacobian / singularities (see roadmap table below).
+4. **V1 prep** — Body URDF, four leg mounts, body pose → foot placement.
 
 ---
 
