@@ -252,13 +252,20 @@ bash scripts/run_test_stand.sh
 python -u V0_test_stand/test_stand.py
 ```
 
-Three sliders appear in the PyBullet GUI window:
+In the **Params** panel on the right, PyBullet shows **user debug sliders** (often called “sliders” or mistyped “slides”). They are not physics objects — they are UI controls that set each joint’s **target angle** for the position controller:
 
-| Slider | Joint | Range |
-|--------|-------|-------|
-| **Hip Abduction** | q1 — rotates leg laterally | ±31° |
-| **Hip Flexion** | q2 — swings upper leg fwd/back | ±150° |
-| **Knee Flexion** | q3 — bends the knee | ±150° |
+| Slider (label) | Joint | Range (degrees on the slider) |
+|----------------|-------|-------------------------------|
+| **Hip Abduction (deg)** | q1 — ab/adduction (lateral swing) | about ±31° |
+| **Hip Flexion (deg)** | q2 — flexion in the sagittal plane | about ±150° |
+| **Knee Flexion (deg)** | q3 — knee bend | about ±150° |
+| **Clear Trail** | n/a | move the handle to clear the green foot trail |
+
+Values are shown and edited in **degrees**; the script converts to radians for PyBullet. Default **camera** is a **front (coronal)** view from +X so you face the leg like the test-stand front view, not a side isometric. Use `--camera side` for the old yaw=45 view:
+
+```bash
+bash scripts/run_test_stand.sh --camera side
+```
 
 A **green trail** traces the foot path. The **yellow skeleton** overlay and **HUD text** update every frame showing joint angles, foot position in hip frame, total reach, and FK error (difference between our math and PyBullet's internal FK — should be near zero).
 

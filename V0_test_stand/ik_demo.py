@@ -43,6 +43,20 @@ URDF_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "urdf", "leg_test_stand.urdf"
 )
 
+# Match test_stand.py defaults (front = coronal from +X).
+CAM_FRONT = dict(
+    cameraDistance=0.52,
+    cameraYaw=-90.0,
+    cameraPitch=-20.0,
+    cameraTargetPosition=[0.0, 0.0, STAND_HEIGHT - 0.06],
+)
+CAM_SIDE = dict(
+    cameraDistance=0.5,
+    cameraYaw=45.0,
+    cameraPitch=-30.0,
+    cameraTargetPosition=[0.0, -0.03, STAND_HEIGHT - 0.12],
+)
+
 # Nominal stance: slight hip flexion + knee bend so the foot is well
 # inside the workspace and the circle/path has room around it.
 NOMINAL_ANGLES = (0.0, 0.3, -0.6)
@@ -103,16 +117,20 @@ def main():
     parser.add_argument("--fps", type=int, default=15)
     parser.add_argument("--width", type=int, default=800)
     parser.add_argument("--height", type=int, default=600)
+    parser.add_argument(
+        "--camera",
+        choices=("front", "side"),
+        default="front",
+        help="front = coronal from +X; side = old yaw=45 view",
+    )
     args = parser.parse_args()
 
     # ── PyBullet setup ──────────────────────────────────────────────────
     p.connect(p.GUI)
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
     p.setGravity(0, 0, -9.81)
-    p.resetDebugVisualizerCamera(
-        cameraDistance=0.5, cameraYaw=45, cameraPitch=-30,
-        cameraTargetPosition=[0, -0.03, STAND_HEIGHT - 0.12],
-    )
+    cam = CAM_FRONT if args.camera == "front" else CAM_SIDE
+    p.resetDebugVisualizerCamera(**cam)
     p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
 
     p.loadURDF("plane.urdf")

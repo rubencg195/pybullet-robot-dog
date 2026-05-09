@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """V0 Test Stand — interactive single-leg control with joint sliders.
 
-Loads a SpotMicro-inspired 3-DOF leg on a fixed test stand and gives
-you three GUI sliders (hip abduction, hip flexion, knee).  The foot
-trail is drawn in green; a yellow skeleton overlay and joint-angle
-HUD update every frame.
+Loads a SpotMicro-inspired 3-DOF leg on a fixed test stand.  The PyBullet
+**Params** panel shows **sliders** (debug parameters): three joints in
+**degrees** plus **Clear Trail**.  The foot trail is drawn in green; a yellow
+skeleton overlay and HUD update every frame.  Default camera is **front**
+(coronal, from +X); use ``--camera side`` for the old isometric view.
 
 Usage
 -----
     python V0_test_stand/test_stand.py
+    python V0_test_stand/test_stand.py --camera side
     python V0_test_stand/test_stand.py --record recordings/session.gif
 """
 
@@ -35,6 +37,21 @@ URDF_PATH = os.path.join(
 JOINT_ORDER = ["hip_abduction", "hip_flexion", "knee_flexion"]
 LOG_INTERVAL = 120  # print to terminal every N simulation steps
 
+# Default camera: **front** view (coronal) — camera sits on +X, looks at hip.
+# Hip frame: +X forward, +Y lateral (left), +Z up. Side/isometric used yaw≈45.
+CAM_FRONT = dict(
+    cameraDistance=0.52,
+    cameraYaw=-90.0,
+    cameraPitch=-20.0,
+    cameraTargetPosition=[0.0, 0.0, STAND_HEIGHT - 0.06],
+)
+CAM_SIDE = dict(
+    cameraDistance=0.5,
+    cameraYaw=45.0,
+    cameraPitch=-30.0,
+    cameraTargetPosition=[0.0, -0.03, STAND_HEIGHT - 0.12],
+)
+
 
 def _find_link_index(robot_id, link_name):
     for i in range(p.getNumJoints(robot_id)):
@@ -51,6 +68,12 @@ def main():
     parser.add_argument("--fps", type=int, default=15, help="GIF frame rate")
     parser.add_argument("--width", type=int, default=800, help="Capture width")
     parser.add_argument("--height", type=int, default=600, help="Capture height")
+    parser.add_argument(
+        "--camera",
+        choices=("front", "side"),
+        default="front",
+        help="front = coronal view from +X (like patent front); side = old yaw=45 view",
+    )
     args = parser.parse_args()
 
     print("=" * 60)
@@ -68,14 +91,10 @@ def main():
 
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
     p.setGravity(0, 0, -9.81)
-    p.resetDebugVisualizerCamera(
-        cameraDistance=0.5,
-        cameraYaw=45,
-        cameraPitch=-30,
-        cameraTargetPosition=[0, -0.03, STAND_HEIGHT - 0.12],
-    )
+    cam = CAM_FRONT if args.camera == "front" else CAM_SIDE
+    p.resetDebugVisualizerCamera(**cam)
     p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
-    print("[INIT] Camera and gravity configured")
+    print(f"[INIT] Camera preset: {args.camera}  ({cam})")
 
     print("[INIT] Loading ground plane...")
     plane_id = p.loadURDF("plane.urdf")
@@ -102,13 +121,15 @@ def main():
 
     print(f"[INIT] Revolute joints found: {list(joints.keys())}")
 
+    # Params panel sliders: joint targets in **degrees** (converted to rad for PyBullet).
     sliders = {}
     for name in JOINT_ORDER:
         j = joints[name]
-        sliders[name] = p.addUserDebugParameter(
-            name.replace("_", " ").title(), j["lower"], j["upper"], 0.0
-        )
-    print(f"[INIT] GUI sliders created for: {JOINT_ORDER}")
+        lo_deg = float(np.degrees(j["lower"]))
+        hi_deg = float(np.degrees(j["upper"]))
+        label = name.replace("_", " ").title() + " (deg)"
+        sliders[name] = p.addUserDebugParameter(label, lo_deg, hi_deg, 0.0)
+    print(f"[INIT] GUI sliders (degrees) for: {JOINT_ORDER}")
 
     clear_btn = p.addUserDebugParameter("Clear Trail", 0, 1, 0)
     last_clear = p.readUserDebugParameter(clear_btn)
@@ -155,19 +176,18 @@ def main():
                 viz.clear_trail("foot")
                 print("[EVENT] Trail cleared")
 
-            # read sliders
-            q1 = p.readUserDebugParameter(sliders["hip_abduction"])
-            q2 = p.readUserDebugParameter(sliders["hip_flexion"])
-            q3 = p.readUserDebugParameter(sliders["knee_flexion"])
+            # read sliders (degrees → radians)
+            q1 = np.radians(p.readUserDebugParameter(sliders["hip_abduction"]))
+            q2 = np.radians(p.readUserDebugParameter(sliders["hip_flexion"]))
+            q3 = np.radians(p.readUserDebugParameter(sliders["knee_flexion"]))
 
             # drive joints
-            for name in JOINT_ORDER:
-                angle = p.readUserDebugParameter(sliders[name])
+            for name, q in zip(JOINT_ORDER, (q1, q2, q3)):
                 p.setJointMotorControl2(
                     robot,
                     joints[name]["idx"],
                     p.POSITION_CONTROL,
-                    targetPosition=angle,
+                    targetPosition=q,
                     force=10,
                     maxVelocity=5.0,
                 )
