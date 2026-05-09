@@ -19,7 +19,6 @@ import argparse
 
 import numpy as np
 
-# Allow imports from the repo root regardless of cwd.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pybullet as p
@@ -34,6 +33,7 @@ URDF_PATH = os.path.join(
 )
 
 JOINT_ORDER = ["hip_abduction", "hip_flexion", "knee_flexion"]
+LOG_INTERVAL = 120  # print to terminal every N simulation steps
 
 
 def _find_link_index(robot_id, link_name):
@@ -53,8 +53,19 @@ def main():
     parser.add_argument("--height", type=int, default=600, help="Capture height")
     args = parser.parse_args()
 
+    print("=" * 60)
+    print("  V0 TEST STAND — SpotMicro Leg Simulation")
+    print("=" * 60)
+    print(f"  URDF path : {URDF_PATH}")
+    print(f"  Stand height : {STAND_HEIGHT} m")
+    print(f"  URDF exists  : {os.path.isfile(URDF_PATH)}")
+    print()
+
     # ── PyBullet setup ──────────────────────────────────────────────────
-    p.connect(p.GUI)
+    print("[INIT] Connecting to PyBullet GUI...")
+    cid = p.connect(p.GUI)
+    print(f"[INIT] PyBullet connected  (client id = {cid})")
+
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
     p.setGravity(0, 0, -9.81)
     p.resetDebugVisualizerCamera(
@@ -64,20 +75,32 @@ def main():
         cameraTargetPosition=[0, -0.03, STAND_HEIGHT - 0.12],
     )
     p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
+    print("[INIT] Camera and gravity configured")
 
-    p.loadURDF("plane.urdf")
+    print("[INIT] Loading ground plane...")
+    plane_id = p.loadURDF("plane.urdf")
+    print(f"[INIT] Ground plane loaded  (body id = {plane_id})")
+
+    print(f"[INIT] Loading leg URDF from {URDF_PATH} ...")
     robot = p.loadURDF(URDF_PATH, [0, 0, STAND_HEIGHT], useFixedBase=True)
+    print(f"[INIT] Leg loaded  (body id = {robot})")
 
     # ── discover revolute joints ────────────────────────────────────────
+    num_joints = p.getNumJoints(robot)
+    print(f"[INIT] Total joints in URDF: {num_joints}")
     joints = {}
-    for i in range(p.getNumJoints(robot)):
+    for i in range(num_joints):
         info = p.getJointInfo(robot, i)
+        jtype = {0: "REVOLUTE", 1: "PRISMATIC", 2: "SPHERICAL",
+                 3: "PLANAR", 4: "FIXED"}.get(info[2], f"UNKNOWN({info[2]})")
+        jname = info[1].decode()
+        lname = info[12].decode()
+        print(f"  joint[{i}]  name={jname:<20s}  type={jtype:<10s}  "
+              f"child_link={lname:<16s}  limits=[{info[8]:.3f}, {info[9]:.3f}]")
         if info[2] == p.JOINT_REVOLUTE:
-            joints[info[1].decode()] = {
-                "idx": i,
-                "lower": info[8],
-                "upper": info[9],
-            }
+            joints[jname] = {"idx": i, "lower": info[8], "upper": info[9]}
+
+    print(f"[INIT] Revolute joints found: {list(joints.keys())}")
 
     sliders = {}
     for name in JOINT_ORDER:
@@ -85,20 +108,43 @@ def main():
         sliders[name] = p.addUserDebugParameter(
             name.replace("_", " ").title(), j["lower"], j["upper"], 0.0
         )
+    print(f"[INIT] GUI sliders created for: {JOINT_ORDER}")
 
     clear_btn = p.addUserDebugParameter("Clear Trail", 0, 1, 0)
     last_clear = p.readUserDebugParameter(clear_btn)
 
     # ── helpers ─────────────────────────────────────────────────────────
     cfg = LegConfig()
+    print(f"[INIT] LegConfig: L1={cfg.L1}m  L2={cfg.L2}m  L3={cfg.L3}m  "
+          f"side_sign={cfg.side_sign}")
+
     viz = DebugVisualizer()
     base = np.array([0.0, 0.0, STAND_HEIGHT])
     foot_link_idx = _find_link_index(robot, "foot_link")
+    print(f"[INIT] foot_link index = {foot_link_idx}")
+
+    # verify initial foot position
+    if foot_link_idx >= 0:
+        init_state = p.getLinkState(robot, foot_link_idx)
+        print(f"[INIT] Initial foot world pos (PyBullet): "
+              f"({init_state[0][0]:.4f}, {init_state[0][1]:.4f}, {init_state[0][2]:.4f})")
+
+    hip0, sh0, kn0, ft0 = forward_kinematics_full(0, 0, 0, cfg)
+    print(f"[INIT] FK at zero angles — foot (hip frame): "
+          f"({ft0[0]:+.4f}, {ft0[1]:+.4f}, {ft0[2]:+.4f})")
+    print(f"[INIT] FK at zero angles — foot (world):     "
+          f"({ft0[0]+base[0]:+.4f}, {ft0[1]+base[1]:+.4f}, {ft0[2]+base[2]:+.4f})")
+    print()
 
     frames: list[np.ndarray] = []
+    step_count = 0
+    max_fk_err = 0.0
+    t_start = time.time()
 
-    print("Test stand running.  Move the sliders in the PyBullet GUI.")
-    print("Press Ctrl+C or close the window to exit.\n")
+    print("[RUN ] Simulation running — move sliders in the PyBullet GUI window.")
+    print(f"[RUN ] Terminal log every {LOG_INTERVAL} steps (~{LOG_INTERVAL/240:.1f}s).")
+    print("[RUN ] Press Ctrl+C or close the window to exit.")
+    print("-" * 60)
 
     try:
         while True:
@@ -107,6 +153,7 @@ def main():
             if cv != last_clear:
                 last_clear = cv
                 viz.clear_trail("foot")
+                print("[EVENT] Trail cleared")
 
             # read sliders
             q1 = p.readUserDebugParameter(sliders["hip_abduction"])
@@ -126,6 +173,7 @@ def main():
                 )
 
             p.stepSimulation()
+            step_count += 1
 
             # FK (our math)
             hip, shoulder, knee, foot = forward_kinematics_full(q1, q2, q3, cfg)
@@ -139,7 +187,25 @@ def main():
                 pb_foot = np.array(p.getLinkState(robot, foot_link_idx)[0])
                 fk_err = np.linalg.norm(foot_w - pb_foot)
             else:
+                pb_foot = foot_w
                 fk_err = 0.0
+
+            max_fk_err = max(max_fk_err, fk_err)
+
+            # periodic terminal log
+            if step_count % LOG_INTERVAL == 0:
+                elapsed = time.time() - t_start
+                fps_actual = step_count / elapsed if elapsed > 0 else 0
+                print(
+                    f"[STEP {step_count:>6d}]  "
+                    f"q=({np.degrees(q1):+6.1f}, {np.degrees(q2):+6.1f}, {np.degrees(q3):+6.1f}) deg  "
+                    f"foot_hip=({foot[0]:+.4f}, {foot[1]:+.4f}, {foot[2]:+.4f})  "
+                    f"foot_world=({foot_w[0]:+.4f}, {foot_w[1]:+.4f}, {foot_w[2]:+.4f})  "
+                    f"reach={np.linalg.norm(foot):.4f}m  "
+                    f"fk_err={fk_err:.6f}m  "
+                    f"pb_foot=({pb_foot[0]:.4f}, {pb_foot[1]:.4f}, {pb_foot[2]:.4f})  "
+                    f"fps={fps_actual:.0f}"
+                )
 
             # visualise
             viz.draw_leg_skeleton([hip_w, shoulder_w, knee_w, foot_w])
@@ -188,10 +254,19 @@ def main():
     except (KeyboardInterrupt, SystemExit):
         pass
 
+    # ── summary ─────────────────────────────────────────────────────────
+    elapsed = time.time() - t_start
+    print()
+    print("-" * 60)
+    print(f"[DONE] Steps: {step_count}   Elapsed: {elapsed:.1f}s   "
+          f"Avg FPS: {step_count / elapsed if elapsed > 0 else 0:.0f}")
+    print(f"[DONE] Max FK error: {max_fk_err:.6f} m")
+
     if args.record and frames:
         _save_gif(frames, args.record, args.fps)
 
     p.disconnect()
+    print("[DONE] PyBullet disconnected.  Goodbye.")
 
 
 def _save_gif(frames, path, fps):
