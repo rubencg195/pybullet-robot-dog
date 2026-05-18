@@ -38,7 +38,7 @@ Reference renders from the first Fusion assembly export live under `images/V1_te
 |:---:|:---:|
 | ![V1 leg mechanism](images/V1_test_stand/front-view-leg-mechanism-v1-0.png) | ![V1 leg dimensions](images/V1_test_stand/front-view-leg-mechanism-dimensions-v1-0.png) |
 
-The mechanism is a four-bar style tibia drive (parallel links, MG996R housings, servo horn geometry) on a fixed test-stand base—same role as the primitive V0 leg, but drawn in CAD. The dimensioned view shows link lengths (e.g. 60 mm upper/lower segments in that sketch) for checking against `common/kinematics.py` before you simplify parts into the five URDF meshes.
+The mechanism is a four-bar style tibia drive (parallel links, MG996R housings, servo horn geometry) on a fixed test-stand base—same role as the primitive V0 leg, but drawn in CAD. The dimensioned drawing is for **mechanical** layout (four-bar links, servo brackets, etc.). The sim only models a **three-link** chain: compare your femur/tibia/shoulder-offset lengths to `LegConfig` in `common/kinematics.py` (**L1** 55 mm, **L2** 107 mm, **L3** 130 mm by default). When those match—or you update `LegConfig`—export **five** STLs (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) into `V1_test_stand/meshes/`; you do not load all 16 Fusion bodies into the URDF.
 
 ---
 
