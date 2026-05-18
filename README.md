@@ -1,6 +1,6 @@
 # PyBullet robot dog
 
-This repo is a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-style quadruped in [PyBullet](https://pybullet.org/). **V0** is one leg on a test stand built from primitives (cylinders/spheres). **V1** is the *same* stand and joint layout, but the URDF expects **real CAD exports** (STLs under `V1_test_stand/meshes/`)—that folder is empty until you drop files in. Everything after that—full dog, gaits, hardware—is sketched as V2+.
+This repo is a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-style quadruped in [PyBullet](https://pybullet.org/). **V0** is one leg on a test stand built from primitives (cylinders/spheres). **V1** is the *same* stand and joint layout with a mesh URDF: the first **Fusion 360** export is in `V1_test_stand/cad/stl/` (full MG996R assembly), with reference drawings under `images/V1_test_stand/`. PyBullet still needs five **per-link** STLs in `V1_test_stand/meshes/` aligned to `leg_test_stand_cad.urdf` before the V1 sim launchers run. Everything after that—full dog, gaits, hardware—is sketched as V2+.
 
 There’s a real build on the bench too—ESP32, servos, aluminium extrusion—so the sim is where we mess with poses without stripping gears.
 
@@ -30,13 +30,23 @@ We only commit a few files from that folder (see `.gitignore`). Right now the RE
 |:---:|:---:|
 | ![session](recordings/README_v0_test_stand.gif) | ![still](recordings/PYB-SIM.png) |
 
+### V1 CAD (Fusion export, v1.0)
+
+Reference renders from the first Fusion assembly export live under `images/V1_test_stand/` (same idea as `spot-micro/images/` for the full [SpotMicro](https://www.thingiverse.com/thing:3445283) reference pack—versioned reference art at the repo root, not mixed into sim code). Source meshes are the 16 STLs in `V1_test_stand/cad/stl/`.
+
+| Mechanism (front view) | Dimensions (front view) |
+|:---:|:---:|
+| ![V1 leg mechanism](images/V1_test_stand/front-view-leg-mechanism-v1-0.png) | ![V1 leg dimensions](images/V1_test_stand/front-view-leg-mechanism-dimensions-v1-0.png) |
+
+The mechanism is a four-bar style tibia drive (parallel links, MG996R housings, servo horn geometry) on a fixed test-stand base—same role as the primitive V0 leg, but drawn in CAD. The dimensioned view shows link lengths (e.g. 60 mm upper/lower segments in that sketch) for checking against `common/kinematics.py` before you simplify parts into the five URDF meshes.
+
 ---
 
 ## What’s in the box
 
 **V0** — `V0_test_stand/urdf/leg_test_stand.urdf` is the working leg: three revolutes, cylinders, green foot, base at 0.35 m. `test_stand.py` and `ik_demo.py` live here; they’re the ones you run day to day.
 
-**V1** — `V1_test_stand/urdf/leg_test_stand_cad.urdf` mirrors the same joints and limits, but every link uses `<mesh>` tags pointing at `V1_test_stand/meshes/*.stl`. The launchers (`V1_test_stand/test_stand.py` and `ik_demo.py`) check for five files (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) and **quit with a checklist** if anything’s missing—so the repo stays honest until CAD lands. Under the hood they call the V0 scripts with `--urdf …/leg_test_stand_cad.urdf`. Use `bash scripts/run_test_stand_v1.sh` once the STLs exist.
+**V1** — `V1_test_stand/urdf/leg_test_stand_cad.urdf` mirrors the same joints and limits, but every link uses `<mesh>` tags pointing at `V1_test_stand/meshes/*.stl`. The **Fusion export** (all bodies) is committed under `V1_test_stand/cad/stl/`; `images/V1_test_stand/` holds front-view mechanism and dimension drawings. The launchers (`V1_test_stand/test_stand.py` and `ik_demo.py`) still check for five **URDF** files (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) and **quit with a checklist** if any are missing—derive those from the CAD pack when frames line up with V0. Under the hood they call the V0 scripts with `--urdf …/leg_test_stand_cad.urdf`. Use `bash scripts/run_test_stand_v1.sh` once the five meshes exist.
 
 Shared pieces: `common/kinematics.py` (FK/IK, `LegConfig`), `common/debug_visualizer.py`, `common/view_capture.py`. Shell helpers: `check_v0_env.sh`, `run_test_stand.sh`, `run_ik_demo.sh`, plus `run_test_stand_v1.sh` / `run_ik_demo_v1.sh`.
 
@@ -187,7 +197,10 @@ Axes: **X** forward, **Y** left, **Z** up. Base plate sits at **z = 0.35 m**. 
 pybullet-robot-dog/
 ├── README.md
 ├── requirements.txt
-├── recordings/          # mostly ignored; README_* and PYB-SIM.png are tracked
+├── images/
+│   └── V1_test_stand/          # Fusion reference renders (PNG)
+├── recordings/                 # mostly ignored; README_* and PYB-SIM.png are tracked
+├── spot-micro/                 # Thingiverse reference STLs + images (see spot-micro/README.txt)
 ├── scripts/
 │   ├── check_v0_env.sh
 │   ├── run_test_stand.sh
@@ -203,7 +216,8 @@ pybullet-robot-dog/
 │   ├── test_stand.py
 │   └── ik_demo.py
 └── V1_test_stand/
-    ├── meshes/                 # drop STLs here (gitignored except .gitkeep)
+    ├── cad/stl/                # Fusion assembly export (16 bodies, v1.0)
+    ├── meshes/                 # five URDF link STLs (when ready)
     ├── urdf/leg_test_stand_cad.urdf
     ├── test_stand.py           # wrapper → V0 + --urdf
     └── ik_demo.py
@@ -268,7 +282,9 @@ If you have two Pythons fighting, force one: `export PY_ROBOT_DOG=/path/to/pytho
 
 ### V1 (CAD meshes)
 
-When the five STLs are in place:
+Full Fusion parts are already in `V1_test_stand/cad/stl/`. For PyBullet, export or merge into the five names under `meshes/` (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) with link frames matching V0—see the dimensioned PNG in `images/V1_test_stand/`.
+
+When those five STLs are in place:
 
 ```bash
 bash scripts/run_test_stand_v1.sh --camera coronal
@@ -315,7 +331,7 @@ flowchart LR
 | Phase | What | Status |
 |-------|------|--------|
 | **V0** | Single leg, primitive URDF, sliders, IK demo, GIF/PNG capture | in good shape |
-| **V1** | Same test stand, mesh URDF + `meshes/*.stl` (exports not in repo yet) | waiting on CAD |
+| **V1** | Same test stand; Fusion v1.0 in `cad/stl/` + `images/V1_test_stand/`; mesh URDF needs five link STLs in `meshes/` | CAD in repo; URDF meshes pending |
 | **V2** | Full body URDF, four legs, stand/sit poses, foot placement from body pose | not started |
 | **V3** | Scheduled gaits—trot, crawl, turns, maybe rough terrain hooks | not started |
 | **V4** | Talk to the real rig—ESP32, PWM calibration, later IMU if we need it | not started |
@@ -328,7 +344,7 @@ flowchart LR
 | 0.11 | Velocity / torque limits in IK |
 | 0.12 | Jacobian / singularities |
 
-**V1 before it’s “real”:** export STLs with link frames aligned to the URDF (or edit the URDF after a CAD round-trip), replace placeholder inertias with measured values if sim fidelity matters, and consider simplified collision meshes if full-res STLs are heavy.
+**V1 before it’s “real”:** map `cad/stl/` bodies into the five URDF links with frames aligned to V0 (or edit the URDF after a CAD round-trip), replace placeholder inertias with measured values if sim fidelity matters, and consider simplified collision meshes if full-res STLs are heavy.
 
 ---
 
@@ -366,7 +382,7 @@ Run from repo root (the scripts resolve paths from `__file__`, but it saves head
 
 ### V1 exits immediately
 
-You haven’t added the mesh pack yet. The error lists the five STLs; export from CAD into `V1_test_stand/meshes/` or temporarily point `--urdf` at a copy of the V0 URDF if you’re only testing the wrapper.
+The five **URDF** STLs in `V1_test_stand/meshes/` aren’t there yet (the full Fusion export in `cad/stl/` is separate). The error lists the missing names—derive them from the CAD pack or temporarily point `--urdf` at the V0 URDF if you’re only testing the wrapper.
 
 ### Where we’re stuck in general
 
