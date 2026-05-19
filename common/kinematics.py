@@ -15,8 +15,8 @@ from dataclasses import dataclass
 class LegConfig:
     """SpotMicro-inspired leg dimensions and side selection."""
     L1: float = 0.055   # shoulder lateral offset  [m]
-    L2: float = 0.107   # upper leg (femur) length [m]
-    L3: float = 0.130   # lower leg (tibia) length [m]
+    L2: float = 0.060   # upper leg (femur) length [m]  (V1 CAD: 60 mm)
+    L3: float = 0.060   # lower leg (tibia) length [m]  (V1 CAD: 60 mm)
     side_sign: float = -1.0  # -1 = right leg, +1 = left leg
 
 

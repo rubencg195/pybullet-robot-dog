@@ -60,7 +60,8 @@ CAM_PRESETS = {"stand": CAM_STAND, "iso": CAM_ISO, "coronal": CAM_CORONAL}
 
 # Nominal stance: slight hip flexion + knee bend so the foot is well
 # inside the workspace and the circle/path has room around it.
-NOMINAL_ANGLES = (0.0, 0.3, -0.6)
+# With L2=L3=60mm, full extension = 120mm; keep foot well inside.
+NOMINAL_ANGLES = (0.0, 0.4, -0.8)
 
 
 # ── trajectory generators ──────────────────────────────────────────────
@@ -164,6 +165,25 @@ def main():
         if info[2] == p.JOINT_REVOLUTE:
             joints[info[1].decode()] = i
 
+    # Four-bar loop closure (if coupler_link and tibia_link present)
+    def _find_link(name):
+        for i in range(p.getNumJoints(robot)):
+            if p.getJointInfo(robot, i)[12].decode() == name:
+                return i
+        return -1
+
+    coupler_idx = _find_link("coupler_link")
+    tibia_idx = _find_link("tibia_link")
+    if coupler_idx >= 0 and tibia_idx >= 0:
+        cid = p.createConstraint(
+            robot, coupler_idx, robot, tibia_idx,
+            p.JOINT_POINT2POINT, [0, 0, 0],
+            [0, 0, -0.060], [0, 0, 0])
+        p.changeConstraint(cid, maxForce=500)
+        if "coupler_passive" in joints:
+            p.setJointMotorControl2(robot, joints["coupler_passive"],
+                                    p.VELOCITY_CONTROL, targetVelocity=0, force=0)
+
     cfg = LegConfig()
     viz = DebugVisualizer()
     base = np.array([0.0, 0.0, STAND_HEIGHT])
@@ -177,7 +197,7 @@ def main():
         targets = _line_path(nominal_foot, args.radius)
     else:
         targets = _step_path(nominal_foot,
-                             step_length=0.06, step_height=0.04)
+                             step_length=0.03, step_height=0.02)
 
     # draw full target path once (orange, persistent)
     world_targets = [t + base for t in targets]
@@ -221,7 +241,7 @@ def main():
                     robot, joints["hip_flexion"],
                     p.POSITION_CONTROL, q2, force=10, maxVelocity=10)
                 p.setJointMotorControl2(
-                    robot, joints["knee_flexion"],
+                    robot, joints["knee_passive"],
                     p.POSITION_CONTROL, q3, force=10, maxVelocity=10)
 
                 hip, shoulder, knee, foot = forward_kinematics_full(
