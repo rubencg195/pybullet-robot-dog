@@ -28,7 +28,11 @@ We only commit a few files from that folder (see `.gitignore`). Right now the RE
 
 | GIF | PNG |
 |:---:|:---:|
-| ![session](recordings/README_v0_test_stand.gif) | ![still](recordings/PYB-SIM.png) |
+| ![PyBullet test stand session](recordings/README_v0_test_stand.gif) | ![PyBullet still](recordings/PYB-SIM.png) |
+
+**Sister project** — browser-based [robot-dog-simulator](https://github.com/rubencg195/robot-dog-simulator) (Three.js; live at [robotdogsim.rubenchevez.com](https://robotdogsim.rubenchevez.com)):
+
+![Web simulator screenshot](recordings/README_robot_dog_simulator.png)
 
 ### V1 CAD (Fusion export, v1.0)
 
@@ -401,6 +405,7 @@ The five **URDF** STLs in `V1_test_stand/meshes/` aren’t there yet (the full F
 ## References
 
 - **In-repo:** `references/spot-micro/` — original [Thingiverse SpotMicro](https://www.thingiverse.com/thing:3445283) STLs, photos, and `README.txt` (parts list, assembly videos). Not used directly by the sim; kept for comparison and future quadruped work.
+- [robot-dog-simulator](https://github.com/rubencg195/robot-dog-simulator) — browser-based Three.js sister project ([live preview](https://robotdogsim.rubenchevez.com))
 - [SpotMicro ESP32](https://github.com/michaelkubina/SpotMicroESP32)
 - [SpotMicro AI](https://github.com/FlorianWilworeit/SpotMicroAI)
 - [PyBullet quickstart](https://docs.google.com/document/d/10sXEhzFRSnvFcl3XxNGhnD4N2SedqwdAvK3dsihxVUA/edit)
