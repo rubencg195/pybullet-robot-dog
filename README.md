@@ -32,7 +32,7 @@ We only commit a few files from that folder (see `.gitignore`). Right now the RE
 
 **Sister project** — browser-based [robot-dog-simulator](https://github.com/rubencg195/robot-dog-simulator) (Three.js; live at [robotdogsim.rubenchevez.com](https://robotdogsim.rubenchevez.com)):
 
-![Web simulator screenshot](recordings/README_robot_dog_simulator.png)
+![Web simulator demo](recordings/README_robot_dog_simulator.gif)
 
 ### V1 CAD (Fusion export, v1.0)
 
