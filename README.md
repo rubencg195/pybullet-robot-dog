@@ -1,6 +1,6 @@
 # PyBullet robot dog
 
-This repo is a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-style quadruped in [PyBullet](https://pybullet.org/). **V0** is one leg on a test stand built from primitives (cylinders/spheres) with a **Watt six-bar linkage knee drive** (ternary link, crank + coupler) matching the V1 CAD layout (60 mm femur/tibia). **V1** is the *same* stand and joint layout with a mesh URDF: the **Onshape** export is in `V1_test_stand/cad/stl/` (full MG996R assembly), with reference drawings under `images/V1_test_stand/`. PyBullet still needs five **per-link** STLs in `V1_test_stand/meshes/` aligned to `leg_test_stand_cad.urdf` before the V1 sim launchers run. Everything after that—full dog, gaits, hardware—is sketched as V2+.
+This repo is a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-style quadruped in [PyBullet](https://pybullet.org/). **V0** is one leg on a test stand built from primitives (cylinders/spheres) with a **Watt six-bar linkage knee drive** (ternary link, crank + coupler) matching the V1 CAD layout (60 mm femur/tibia)—this is the **working sim**. **V1** is the mechanical design reference: **Onshape** part STLs in `V1_test_stand/cad/stl/` (12 bodies) and drawings under `images/V1_test_stand/`. V1 does **not** ship sim meshes; use V0 for PyBullet. A mesh URDF stub (`leg_test_stand_cad.urdf`) and launchers exist for later. Everything after that—full dog, gaits, hardware—is sketched as V2+.
 
 There’s a real build on the bench too—ESP32, servos, aluminium extrusion—so the sim is where we mess with poses without stripping gears.
 
@@ -36,7 +36,7 @@ We only commit a few files from that folder (see `.gitignore`). Right now the RE
 
 ### V1 CAD (Onshape export, v1.1)
 
-Reference renders from the V1 test stand CAD live under `images/V1_test_stand/` (same idea as `references/spot-micro/images/` for the full [SpotMicro](https://www.thingiverse.com/thing:3445283) Thingiverse pack—reference art kept out of sim code). The design was migrated from Fusion 360 to **Onshape** in v1.1; the **shoulder servo holder** piece was added. Source meshes are the STLs in `V1_test_stand/cad/stl/`.
+Reference renders from the V1 test stand CAD live under `images/V1_test_stand/` (same idea as `references/spot-micro/images/` for the full [SpotMicro](https://www.thingiverse.com/thing:3445283) Thingiverse pack—reference art kept out of sim code). The design was migrated from Fusion 360 to **Onshape** in v1.1; the **shoulder servo holder** piece was added. Printable part geometry is the 12 STLs in `V1_test_stand/cad/stl/` (one file per Onshape body—femur, tibia, servo housings, Watt six-bar links, …).
 
 | Mechanism (front view, v1.0) | Dimensions (front view, v1.0) |
 |:---:|:---:|
@@ -46,7 +46,7 @@ Reference renders from the V1 test stand CAD live under `images/V1_test_stand/` 
 |:---:|
 | ![V1 leg mechanism — Onshape v1.1 perspective view with shoulder servo holder](images/V1_test_stand/perspective-view-mechanism-v1-1.png) |
 
-The mechanism is a **Watt six-bar linkage** with a **ternary link** driving the tibia (MG996R housings, servo horn geometry, crank + coupler) on a fixed test-stand base—the same class of leg actuation described for Iron Dog Mini ([Rahman et al., 2023](https://doi.org/10.3390/robotics12010028)). **V0** already simulates this linkage with primitives; the CAD drawing is the mechanical source of truth. Compare femur/tibia/shoulder-offset lengths to `LegConfig` in `common/kinematics.py` (**L1** 55 mm, **L2** 60 mm, **L3** 60 mm). For the mesh URDF, export **five** STLs (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) into `V1_test_stand/meshes/`—not every Onshape body.
+The mechanism is a **Watt six-bar linkage** with a **ternary link** driving the tibia (MG996R housings, servo horn geometry, crank + coupler) on a fixed test-stand base—the same class of leg actuation described for Iron Dog Mini ([Rahman et al., 2023](https://doi.org/10.3390/robotics12010028)). **V0** simulates this linkage with primitives; the CAD is the mechanical source of truth. Compare femur/tibia/shoulder-offset lengths to `LegConfig` in `common/kinematics.py` (**L1** 55 mm, **L2** 60 mm, **L3** 60 mm).
 
 ---
 
@@ -54,7 +54,7 @@ The mechanism is a **Watt six-bar linkage** with a **ternary link** driving the 
 
 **V0** — `V0_test_stand/urdf/leg_test_stand.urdf` is the working leg: hip abduction + flexion, Watt six-bar linkage knee drive (`knee_drive` crank, passive knee + coupler + ternary link, loop closed by a PyBullet constraint), V1 dimensions (60 mm links), base at 0.35 m. Sliders: `hip_abduction`, `hip_flexion`, `knee_drive`. `test_stand.py` and `ik_demo.py` live here.
 
-**V1** — `V1_test_stand/urdf/leg_test_stand_cad.urdf` mirrors the same joints and limits, but every link uses `<mesh>` tags pointing at `V1_test_stand/meshes/*.stl`. The **Onshape export** (all bodies) is committed under `V1_test_stand/cad/stl/`; `images/V1_test_stand/` holds front-view mechanism and dimension drawings. The launchers (`V1_test_stand/test_stand.py` and `ik_demo.py`) still check for five **URDF** files (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) and **quit with a checklist** if any are missing—derive those from the CAD pack when frames line up with V0. Under the hood they call the V0 scripts with `--urdf …/leg_test_stand_cad.urdf`. Use `bash scripts/run_test_stand_v1.sh` once the five meshes exist.
+**V1** — mechanical reference only: `V1_test_stand/cad/stl/` (12 Onshape part STLs), `images/V1_test_stand/` (drawings), and `urdf/leg_test_stand_cad.urdf` (placeholder for a future mesh sim—**not wired up yet**). There is no `meshes/` content in the repo. For PyBullet today, use **V0**.
 
 Shared pieces: `common/kinematics.py` (FK/IK, `LegConfig`), `common/debug_visualizer.py`, `common/view_capture.py`. Shell helpers: `check_v0_env.sh`, `run_test_stand.sh`, `run_ik_demo.sh`, plus `run_test_stand_v1.sh` / `run_ik_demo_v1.sh`.
 
@@ -62,14 +62,14 @@ Shared pieces: `common/kinematics.py` (FK/IK, `LegConfig`), `common/debug_visual
 
 ## Architecture
 
-Folders are versioned so a crude V0 leg and a future mesh V1 don’t fight each other, and later quadruped work stays separate. All of them can share `common/`.
+Folders are versioned so the working V0 sim and the V1 CAD reference stay separate, and later quadruped work can share `common/`.
 
 ```mermaid
 flowchart LR
   subgraph project["PyBullet Robot Dog"]
     COMMON["common/\nKinematics\nVisualisation"]
     V0["V0_test_stand/\nPrimitives\nworking now"]
-    V1["V1_test_stand/\nSame stand\nCAD meshes"]
+    V1["V1_test_stand/\nOnshape CAD\n+ drawings"]
     V2["V2 (next)\nFull quad\nbody + legs"]
     V3["V3\nGaits"]
     V4["V4\nReal robot"]
@@ -79,15 +79,15 @@ flowchart LR
   COMMON --> V2
   COMMON --> V3
   COMMON --> V4
-  V0 -->|"same IK chain"| V1
+  V0 -->|"same leg layout"| V1
   V1 -->|"four legs"| V2
   V2 -->|"locomotion"| V3
   V3 -->|"ESP32 / PWM"| V4
 ```
 
-### Sim data flow — V0 and V1 (same code path)
+### Sim data flow — V0 (working today)
 
-V1 is the V0 scripts with `--urdf` pointing at `leg_test_stand_cad.urdf` (or the thin wrappers under `V1_test_stand/`). Kinematics and debug draw are unchanged; only the loaded geometry differs.
+V0 loads `leg_test_stand.urdf` (primitives + Watt six-bar). Kinematics and debug draw live in `common/`.
 
 ```mermaid
 flowchart TB
@@ -107,7 +107,7 @@ flowchart TB
   end
 
   subgraph model["URDF model"]
-    URDF["V0: leg_test_stand.urdf\n(primitives + Watt 6-bar)\n─────────────────\nV1: leg_test_stand_cad.urdf\n(STL meshes)\n─────────────────\nbase z=0.35 m"]
+    URDF["leg_test_stand.urdf\n(primitives + Watt 6-bar)\nbase z=0.35 m"]
   end
 
   subgraph engine["PyBullet Engine"]
@@ -233,10 +233,9 @@ pybullet-robot-dog/
 │   ├── test_stand.py
 │   └── ik_demo.py
 └── V1_test_stand/
-    ├── cad/stl/                # Onshape assembly export (v1.1)
-    ├── meshes/                 # five URDF link STLs (when ready)
-    ├── urdf/leg_test_stand_cad.urdf
-    ├── test_stand.py           # wrapper → V0 + --urdf
+    ├── cad/stl/                # Onshape part export — 12 STLs (v1.1)
+    ├── urdf/leg_test_stand_cad.urdf   # placeholder mesh URDF (future)
+    ├── test_stand.py           # stub — exits until mesh sim exists
     └── ik_demo.py
 ```
 
@@ -297,18 +296,19 @@ Orange = commanded path, red dot = current target, green = where the foot actual
 
 If you have two Pythons fighting, force one: `export PY_ROBOT_DOG=/path/to/python`.
 
-### V1 (CAD meshes)
+### V1 (CAD reference — not a sim yet)
 
-Full Onshape parts are already in `V1_test_stand/cad/stl/`. For PyBullet, export or merge into the five names under `meshes/` (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) with link frames matching V0—see the dimensioned PNG in `images/V1_test_stand/`.
+V1 is committed as **CAD and drawings**, not as a runnable PyBullet model:
 
-When those five STLs are in place:
+- `V1_test_stand/cad/stl/` — 12 Onshape part STLs (print/manufacture/reference)
+- `images/V1_test_stand/` — mechanism and dimension renders
+
+There are **no sim meshes** in V1. `run_test_stand_v1.sh` and `V1_test_stand/test_stand.py` are stubs that tell you to use V0:
 
 ```bash
-bash scripts/run_test_stand_v1.sh --camera coronal
-bash scripts/run_test_stand_v1.sh --record recordings/v1_session.gif --fps 15 --camera coronal
+bash scripts/run_test_stand.sh --camera coronal   # use this
+# bash scripts/run_test_stand_v1.sh               # not ready — no mesh URDF yet
 ```
-
-Until then the launcher prints what’s missing and exits—stick with V0.
 
 ### Recording notes
 
@@ -348,7 +348,7 @@ flowchart LR
 | Phase | What | Status |
 |-------|------|--------|
 | **V0** | Single leg, Watt six-bar knee URDF (V1 dims), sliders, IK demo, GIF/PNG capture | in good shape |
-| **V1** | Same test stand; Onshape v1.1 in `cad/stl/` + `images/V1_test_stand/`; mesh URDF needs five link STLs in `meshes/` | CAD in repo; URDF meshes pending |
+| **V1** | Onshape v1.1 CAD in `cad/stl/` + reference images in `images/V1_test_stand/` | CAD in repo; **no mesh sim** |
 | **V2** | Full body URDF, four legs, stand/sit poses, foot placement from body pose | not started |
 | **V3** | Scheduled gaits—trot, crawl, turns, maybe rough terrain hooks | not started |
 | **V4** | Talk to the real rig—ESP32, PWM calibration, later IMU if we need it | not started |
@@ -361,7 +361,7 @@ flowchart LR
 | 0.11 | Velocity / torque limits in IK |
 | 0.12 | Jacobian / singularities |
 
-**V1 before it’s “real”:** map `cad/stl/` bodies into the five URDF links with frames aligned to V0 (or edit the URDF after a CAD round-trip), replace placeholder inertias with measured values if sim fidelity matters, and consider simplified collision meshes if full-res STLs are heavy.
+**V1 mesh sim (future):** if we add a mesh URDF later, it would mean merging `cad/stl/` parts into coarse link STLs aligned to V0 joint frames—not dropping the 12 part files straight into PyBullet. `leg_test_stand_cad.urdf` and the V1 launchers are placeholders for that work.
 
 ---
 
@@ -397,9 +397,13 @@ One PyBullet connection at a time; if you’re debugging inside an IDE, try a pl
 
 Run from repo root (the scripts resolve paths from `__file__`, but it saves headaches).
 
-### V1 exits immediately
+### V1 launcher exits immediately
 
-The five **URDF** STLs in `V1_test_stand/meshes/` aren’t there yet (the full Onshape export in `cad/stl/` is separate). The error lists the missing names—derive them from the CAD pack or temporarily point `--urdf` at the V0 URDF if you’re only testing the wrapper.
+Expected. V1 has **no sim meshes**—only Onshape part STLs in `cad/stl/`. Use V0:
+
+```bash
+bash scripts/run_test_stand.sh
+```
 
 ### Where we’re stuck in general
 
