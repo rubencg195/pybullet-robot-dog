@@ -34,13 +34,17 @@ We only commit a few files from that folder (see `.gitignore`). Right now the RE
 
 ![Web simulator demo](recordings/README_robot_dog_simulator.gif)
 
-### V1 CAD (Fusion export, v1.0)
+### V1 CAD (Onshape export, v1.1)
 
-Reference renders from the first Fusion assembly export live under `images/V1_test_stand/` (same idea as `references/spot-micro/images/` for the full [SpotMicro](https://www.thingiverse.com/thing:3445283) Thingiverse pack—reference art kept out of sim code). Source meshes are the 16 STLs in `V1_test_stand/cad/stl/`.
+Reference renders from the V1 test stand CAD live under `images/V1_test_stand/` (same idea as `references/spot-micro/images/` for the full [SpotMicro](https://www.thingiverse.com/thing:3445283) Thingiverse pack—reference art kept out of sim code). The design was migrated from Fusion 360 to **Onshape** in v1.1; the **shoulder servo holder** piece was added. Source meshes are the STLs in `V1_test_stand/cad/stl/`.
 
-| Mechanism (front view) | Dimensions (front view) |
+| Mechanism (front view, v1.0) | Dimensions (front view, v1.0) |
 |:---:|:---:|
-| ![V1 leg mechanism](images/V1_test_stand/front-view-leg-mechanism-v1-0.png) | ![V1 leg dimensions](images/V1_test_stand/front-view-leg-mechanism-dimensions-v1-0.png) |
+| ![V1 leg mechanism — Fusion v1.0 front view](images/V1_test_stand/front-view-leg-mechanism-v1-0.png) | ![V1 leg dimensions — Fusion v1.0](images/V1_test_stand/front-view-leg-mechanism-dimensions-v1-0.png) |
+
+| Mechanism (perspective, v1.1) |
+|:---:|
+| ![V1 leg mechanism — Onshape v1.1 perspective view with shoulder servo holder](images/V1_test_stand/perspective-view-mechanism-v1-1.png) |
 
 The mechanism is a four-bar style tibia drive (parallel links, MG996R housings, servo horn geometry) on a fixed test-stand base. **V0** already simulates this linkage with primitives; the CAD drawing is the mechanical source of truth. Compare femur/tibia/shoulder-offset lengths to `LegConfig` in `common/kinematics.py` (**L1** 55 mm, **L2** 60 mm, **L3** 60 mm). For the mesh URDF, export **five** STLs (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) into `V1_test_stand/meshes/`—not all 16 Fusion bodies.
 
