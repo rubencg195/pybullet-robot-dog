@@ -1,6 +1,6 @@
 # PyBullet robot dog
 
-This repo is a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-style quadruped in [PyBullet](https://pybullet.org/). **V0** is one leg on a test stand built from primitives (cylinders/spheres) with a **four-bar knee drive** matching the V1 CAD layout (60 mm femur/tibia, crank + coupler). **V1** is the *same* stand and joint layout with a mesh URDF: the first **Fusion 360** export is in `V1_test_stand/cad/stl/` (full MG996R assembly), with reference drawings under `images/V1_test_stand/`. PyBullet still needs five **per-link** STLs in `V1_test_stand/meshes/` aligned to `leg_test_stand_cad.urdf` before the V1 sim launchers run. Everything after that—full dog, gaits, hardware—is sketched as V2+.
+This repo is a [SpotMicro](https://github.com/michaelkubina/SpotMicroESP32)-style quadruped in [PyBullet](https://pybullet.org/). **V0** is one leg on a test stand built from primitives (cylinders/spheres) with a **Watt six-bar linkage knee drive** (ternary link, crank + coupler) matching the V1 CAD layout (60 mm femur/tibia). **V1** is the *same* stand and joint layout with a mesh URDF: the **Onshape** export is in `V1_test_stand/cad/stl/` (full MG996R assembly), with reference drawings under `images/V1_test_stand/`. PyBullet still needs five **per-link** STLs in `V1_test_stand/meshes/` aligned to `leg_test_stand_cad.urdf` before the V1 sim launchers run. Everything after that—full dog, gaits, hardware—is sketched as V2+.
 
 There’s a real build on the bench too—ESP32, servos, aluminium extrusion—so the sim is where we mess with poses without stripping gears.
 
@@ -46,15 +46,15 @@ Reference renders from the V1 test stand CAD live under `images/V1_test_stand/` 
 |:---:|
 | ![V1 leg mechanism — Onshape v1.1 perspective view with shoulder servo holder](images/V1_test_stand/perspective-view-mechanism-v1-1.png) |
 
-The mechanism is a four-bar style tibia drive (parallel links, MG996R housings, servo horn geometry) on a fixed test-stand base. **V0** already simulates this linkage with primitives; the CAD drawing is the mechanical source of truth. Compare femur/tibia/shoulder-offset lengths to `LegConfig` in `common/kinematics.py` (**L1** 55 mm, **L2** 60 mm, **L3** 60 mm). For the mesh URDF, export **five** STLs (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) into `V1_test_stand/meshes/`—not all 16 Fusion bodies.
+The mechanism is a **Watt six-bar linkage** with a **ternary link** driving the tibia (MG996R housings, servo horn geometry, crank + coupler) on a fixed test-stand base—the same class of leg actuation described for Iron Dog Mini ([Rahman et al., 2023](https://doi.org/10.3390/robotics12010028)). **V0** already simulates this linkage with primitives; the CAD drawing is the mechanical source of truth. Compare femur/tibia/shoulder-offset lengths to `LegConfig` in `common/kinematics.py` (**L1** 55 mm, **L2** 60 mm, **L3** 60 mm). For the mesh URDF, export **five** STLs (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) into `V1_test_stand/meshes/`—not every Onshape body.
 
 ---
 
 ## What’s in the box
 
-**V0** — `V0_test_stand/urdf/leg_test_stand.urdf` is the working leg: hip abduction + flexion, four-bar knee drive (`knee_drive` crank, passive knee + coupler, loop closed by a PyBullet constraint), V1 dimensions (60 mm links), base at 0.35 m. Sliders: `hip_abduction`, `hip_flexion`, `knee_drive`. `test_stand.py` and `ik_demo.py` live here.
+**V0** — `V0_test_stand/urdf/leg_test_stand.urdf` is the working leg: hip abduction + flexion, Watt six-bar linkage knee drive (`knee_drive` crank, passive knee + coupler + ternary link, loop closed by a PyBullet constraint), V1 dimensions (60 mm links), base at 0.35 m. Sliders: `hip_abduction`, `hip_flexion`, `knee_drive`. `test_stand.py` and `ik_demo.py` live here.
 
-**V1** — `V1_test_stand/urdf/leg_test_stand_cad.urdf` mirrors the same joints and limits, but every link uses `<mesh>` tags pointing at `V1_test_stand/meshes/*.stl`. The **Fusion export** (all bodies) is committed under `V1_test_stand/cad/stl/`; `images/V1_test_stand/` holds front-view mechanism and dimension drawings. The launchers (`V1_test_stand/test_stand.py` and `ik_demo.py`) still check for five **URDF** files (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) and **quit with a checklist** if any are missing—derive those from the CAD pack when frames line up with V0. Under the hood they call the V0 scripts with `--urdf …/leg_test_stand_cad.urdf`. Use `bash scripts/run_test_stand_v1.sh` once the five meshes exist.
+**V1** — `V1_test_stand/urdf/leg_test_stand_cad.urdf` mirrors the same joints and limits, but every link uses `<mesh>` tags pointing at `V1_test_stand/meshes/*.stl`. The **Onshape export** (all bodies) is committed under `V1_test_stand/cad/stl/`; `images/V1_test_stand/` holds front-view mechanism and dimension drawings. The launchers (`V1_test_stand/test_stand.py` and `ik_demo.py`) still check for five **URDF** files (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) and **quit with a checklist** if any are missing—derive those from the CAD pack when frames line up with V0. Under the hood they call the V0 scripts with `--urdf …/leg_test_stand_cad.urdf`. Use `bash scripts/run_test_stand_v1.sh` once the five meshes exist.
 
 Shared pieces: `common/kinematics.py` (FK/IK, `LegConfig`), `common/debug_visualizer.py`, `common/view_capture.py`. Shell helpers: `check_v0_env.sh`, `run_test_stand.sh`, `run_ik_demo.sh`, plus `run_test_stand_v1.sh` / `run_ik_demo_v1.sh`.
 
@@ -107,7 +107,7 @@ flowchart TB
   end
 
   subgraph model["URDF model"]
-    URDF["V0: leg_test_stand.urdf\n(primitives + four-bar)\n─────────────────\nV1: leg_test_stand_cad.urdf\n(STL meshes)\n─────────────────\nbase z=0.35 m"]
+    URDF["V0: leg_test_stand.urdf\n(primitives + Watt 6-bar)\n─────────────────\nV1: leg_test_stand_cad.urdf\n(STL meshes)\n─────────────────\nbase z=0.35 m"]
   end
 
   subgraph engine["PyBullet Engine"]
@@ -156,8 +156,8 @@ flowchart LR
   BASE["Test Stand\n(fixed base)\nz = 0.35 m"]
   BASE -->|"q1: Hip Abduction\naxis X · ±31°"| SH["Shoulder\nL1 = 55 mm"]
   SH -->|"q2: Hip Flexion\naxis Y"| FEM["Femur\nL2 = 60 mm"]
-  FEM -->|"knee (passive)\nfour-bar driven"| TIB["Tibia\nL3 = 60 mm"]
-  SH -->|"knee_drive\ncrank 29 mm"| CRANK["Crank + coupler\n60 mm push-rod"]
+  FEM -->|"knee (passive)\nWatt 6-bar driven"| TIB["Tibia\nL3 = 60 mm"]
+  SH -->|"knee_drive\ncrank 29 mm"| CRANK["Crank + coupler\n+ ternary link\n60 mm push-rod"]
   CRANK -.->|"closes loop"| TIB
   TIB --> FOOT["Foot"]
 ```
@@ -179,9 +179,9 @@ flowchart TD
 
 ---
 
-## Leg numbers (V1 CAD, v1.0)
+## Leg numbers (V1 CAD)
 
-Dimensions from the Fusion dimensioned drawing; used in V0 primitives and `LegConfig`:
+Dimensions from the dimensioned drawing (v1.0 Fusion, v1.1 Onshape); used in V0 primitives and `LegConfig`:
 
 - **L1** 55 mm — shoulder offset (abduction axis to flexion axis)
 - **L2** 60 mm — femur
@@ -189,10 +189,11 @@ Dimensions from the Fusion dimensioned drawing; used in V0 primitives and `LegCo
 - **Ground link** 33 mm — hip pivot to knee-drive pivot (on shoulder)
 - **Crank** 29 mm — knee servo arm
 - **Coupler** 60 mm — push-rod (crank tip to knee)
+- **Ternary link** — three-joint coupler in the Watt six-bar loop (see `Leg - TibiaTernary.stl` in `cad/stl/`)
 
-Straight leg reaches **120 mm** below the hip flexion axis. FK/IK in `common/kinematics.py` still use the three-link model (L1–L3); the four-bar maps crank angle to knee angle in the URDF.
+Straight leg reaches **120 mm** below the hip flexion axis. FK/IK in `common/kinematics.py` still use the three-link model (L1–L3); the Watt six-bar linkage maps crank angle to knee angle in the URDF.
 
-Axes: **X** forward, **Y** left, **Z** up. Base plate sits at **z = 0.35 m**. With all active joints at zero (right leg, `side_sign = -1`), the foot is near **(0, −0.055, −0.120)** in the hip frame (four-bar settles the passive knee).
+Axes: **X** forward, **Y** left, **Z** up. Base plate sits at **z = 0.35 m**. With all active joints at zero (right leg, `side_sign = -1`), the foot is near **(0, −0.055, −0.120)** in the hip frame (Watt six-bar linkage settles the passive knee).
 
 ```
       Z (up)
@@ -212,9 +213,10 @@ pybullet-robot-dog/
 ├── README.md
 ├── requirements.txt
 ├── images/
-│   └── V1_test_stand/          # Fusion reference renders (PNG)
+│   └── V1_test_stand/          # CAD reference renders (PNG)
 ├── recordings/                 # mostly ignored; README_* and PYB-SIM.png are tracked
 ├── references/
+│   ├── documentation/          # Iron Dog Mini Watt six-bar paper (PDF)
 │   └── spot-micro/             # Thingiverse reference STLs + images (see README.txt)
 ├── scripts/
 │   ├── check_v0_env.sh
@@ -231,7 +233,7 @@ pybullet-robot-dog/
 │   ├── test_stand.py
 │   └── ik_demo.py
 └── V1_test_stand/
-    ├── cad/stl/                # Fusion assembly export (16 bodies, v1.0)
+    ├── cad/stl/                # Onshape assembly export (v1.1)
     ├── meshes/                 # five URDF link STLs (when ready)
     ├── urdf/leg_test_stand_cad.urdf
     ├── test_stand.py           # wrapper → V0 + --urdf
@@ -297,7 +299,7 @@ If you have two Pythons fighting, force one: `export PY_ROBOT_DOG=/path/to/pytho
 
 ### V1 (CAD meshes)
 
-Full Fusion parts are already in `V1_test_stand/cad/stl/`. For PyBullet, export or merge into the five names under `meshes/` (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) with link frames matching V0—see the dimensioned PNG in `images/V1_test_stand/`.
+Full Onshape parts are already in `V1_test_stand/cad/stl/`. For PyBullet, export or merge into the five names under `meshes/` (`base_plate`, `shoulder_link`, `upper_leg`, `lower_leg`, `foot`) with link frames matching V0—see the dimensioned PNG in `images/V1_test_stand/`.
 
 When those five STLs are in place:
 
@@ -345,8 +347,8 @@ flowchart LR
 
 | Phase | What | Status |
 |-------|------|--------|
-| **V0** | Single leg, four-bar knee URDF (V1 dims), sliders, IK demo, GIF/PNG capture | in good shape |
-| **V1** | Same test stand; Fusion v1.0 in `cad/stl/` + `images/V1_test_stand/`; mesh URDF needs five link STLs in `meshes/` | CAD in repo; URDF meshes pending |
+| **V0** | Single leg, Watt six-bar knee URDF (V1 dims), sliders, IK demo, GIF/PNG capture | in good shape |
+| **V1** | Same test stand; Onshape v1.1 in `cad/stl/` + `images/V1_test_stand/`; mesh URDF needs five link STLs in `meshes/` | CAD in repo; URDF meshes pending |
 | **V2** | Full body URDF, four legs, stand/sit poses, foot placement from body pose | not started |
 | **V3** | Scheduled gaits—trot, crawl, turns, maybe rough terrain hooks | not started |
 | **V4** | Talk to the real rig—ESP32, PWM calibration, later IMU if we need it | not started |
@@ -397,7 +399,7 @@ Run from repo root (the scripts resolve paths from `__file__`, but it saves head
 
 ### V1 exits immediately
 
-The five **URDF** STLs in `V1_test_stand/meshes/` aren’t there yet (the full Fusion export in `cad/stl/` is separate). The error lists the missing names—derive them from the CAD pack or temporarily point `--urdf` at the V0 URDF if you’re only testing the wrapper.
+The five **URDF** STLs in `V1_test_stand/meshes/` aren’t there yet (the full Onshape export in `cad/stl/` is separate). The error lists the missing names—derive them from the CAD pack or temporarily point `--urdf` at the V0 URDF if you’re only testing the wrapper.
 
 ### Where we’re stuck in general
 
@@ -408,7 +410,9 @@ The five **URDF** STLs in `V1_test_stand/meshes/` aren’t there yet (the full F
 
 ## References
 
+- **In-repo:** `references/documentation/` — [Rahman et al. (2023)](references/documentation/A_Dynamic_Approach_to_Low-Cost_Design_Development_.pdf) (*Iron Dog Mini*; Watt six-bar linkage with ternary link for tibia actuation)
 - **In-repo:** `references/spot-micro/` — original [Thingiverse SpotMicro](https://www.thingiverse.com/thing:3445283) STLs, photos, and `README.txt` (parts list, assembly videos). Not used directly by the sim; kept for comparison and future quadruped work.
+- [Rahman et al. (2023)](https://doi.org/10.3390/robotics12010028) — DOI for the same Iron Dog Mini paper
 - [robot-dog-simulator](https://github.com/rubencg195/robot-dog-simulator) — browser-based Three.js sister project ([live preview](https://robotdogsim.rubenchevez.com))
 - [SpotMicro ESP32](https://github.com/michaelkubina/SpotMicroESP32)
 - [SpotMicro AI](https://github.com/FlorianWilworeit/SpotMicroAI)
